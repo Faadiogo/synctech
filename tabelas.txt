@@ -1,0 +1,297 @@
+clientes
+    id (PK)
+    tipo_pessoa (PF, PJ)
+    nome_empresa
+    nome_completo
+    representante_legal
+    razao_social
+    cpf
+    cnpj
+    cep
+    numero
+    endereco
+    cidade
+    uf
+    telefone
+    email
+    observacoes
+    ativo (boolean)
+    created_at
+    updated_at
+
+
+projetos
+    id (PK)
+    cliente_id (FK - clientes)
+    nome
+    descricao
+    tecnologias (JSON)
+    status (nao_iniciado, planejamento, apresentado, orcamento_entregue, orcamento_aprovado, contrato_assinado, entregue, suporte_garantia, concluido)
+    data_inicio
+    data_alvo
+    data_conclusao
+    horas_estimadas
+    horas_trabalhadas
+    valor_estimado
+    progresso (calculado)
+    observacoes
+    created_at
+    updated_at
+
+
+orcamentos
+    id (PK)
+    cliente_id (FK - clientes)
+    projeto_id (FK - projetos)
+    numero_orcamento (auto-incremento)
+    arquivo_pdf_path
+    data_envio
+    data_validade
+    valor_total
+    desconto
+    valor_final
+    status (rascunho, enviado, aprovado, recusado, expirado)
+    observacoes
+    created_at
+    updated_at
+
+
+contratos
+    id (PK)
+    cliente_id (FK - clientes)
+    projeto_id (FK - projetos)
+    orcamento_id (FK - orcamentos)
+    numero_contrato (auto-incremento)
+    valor_orcado
+    desconto
+    valor_contrato
+    data_assinatura
+    qtd_parcelas
+    arquivo_pdf_path
+    status (ativo, concluido, cancelado)
+    observacoes
+    created_at
+    updated_at
+
+
+financeiro
+    id (PK)
+    contrato_id (FK - contratos)
+    tipo_movimento (entrada, saida)
+    descricao
+    valor
+    forma_pagamento (pix, cartao_credito, boleto, dinheiro)
+    data_vencimento
+    data_pagamento
+    status (em_aberto, pago, atrasado, cancelado)
+    numero_parcela
+    observacoes
+    created_at
+    updated_at
+
+
+reunioes
+    id (PK)
+    projeto_id (FK - projetos)
+    titulo
+    descricao
+    data_reuniao
+    horario_inicio
+    horario_fim
+    duracao_minutos (calculado)
+    tipo (presencial, online, telefone)
+    link_reuniao
+    ata_reuniao
+    participantes (JSON)
+    status (agendada, realizada, cancelada)
+    created_at
+    updated_at
+
+
+
+tipos_escopo
+    id (PK)
+    nome (Frontend, Backend, Integrações, Automações, Design)
+    descricao
+    cor_hex
+    created_at
+    updated_at
+
+
+escopos_funcionais
+    id (PK)
+    projeto_id (FK - projetos)
+    tipo_escopo_id (FK - tipos_escopo)
+    nome
+    descricao
+    data_inicio (calculada)
+    data_alvo (calculada)
+    status (planejado, em_andamento, concluido, cancelado)
+    ordem
+    created_at
+    updated_at
+
+
+funcionalidades
+    id (PK)
+    escopo_funcional_id (FK - escopos_funcionais)
+    nome
+    descricao
+    data_inicio (calculada)
+    data_alvo (calculada)
+    status (planejado, em_andamento, concluido, cancelado)
+    ordem
+    created_at
+    updated_at
+
+
+subfuncionalidades
+    id (PK)
+    funcionalidade_id (FK - funcionalidades)
+    nome
+    descricao
+    data_inicio (calculada)
+    data_alvo (calculada)
+    status (planejado, em_andamento, concluido, cancelado)
+    ordem
+    created_at
+    updated_at
+
+
+subitens
+    id (PK)
+    subfuncionalidade_id (FK - subfuncionalidades)
+    nome
+    descricao
+    data_inicio
+    data_alvo
+    status (planejado, em_andamento, concluido, cancelado)
+    horas_estimadas
+    ordem
+    created_at
+    updated_at
+
+cronograma_entregas
+    id (PK)
+    projeto_id (FK - projetos)
+    fase_numero
+    nome_fase
+    descricao
+    data_inicio
+    data_alvo
+    status (nao_iniciada, em_andamento, concluida, atrasada)
+    progresso_percentual (calculado)
+    created_at
+    updated_at
+
+
+cronograma_itens
+    id (PK)
+    cronograma_entrega_id (FK - cronograma_entregas)
+    item_type (escopo_funcional, funcionalidade, subfuncionalidade, subitem)
+    item_id (ID polimórfico)
+    data_inicio
+    data_alvo
+    status (nao_iniciado, em_andamento, concluido)
+    ordem
+    created_at
+    updated_at
+
+
+tarefas
+    id (PK)
+    projeto_id (FK - projetos)
+    subitem_id (FK - subitens)
+    cronograma_item_id (FK - cronograma_itens) -- opcional
+    titulo
+    descricao
+    status (nao_iniciada, em_andamento, concluida, cancelada)
+    prioridade (baixa, media, alta, critica)
+    data_inicio
+    data_alvo
+    data_conclusao
+    horas_estimadas
+    horas_trabalhadas
+    responsavel
+    observacoes
+    created_at
+    updated_at
+
+
+tecnologias
+    id (PK)
+    nome
+    categoria
+    versao
+    descricao
+    cor_hex
+    created_at
+    updated_at
+
+
+projeto_tecnologias
+    id (PK)
+    projeto_id (FK - projetos)
+    tecnologia_id (FK - tecnologias)
+    versao_usada
+    created_at
+
+
+templates_contrato
+    id (PK)
+    nome
+    conteudo_html
+    variaveis_disponiveis (JSON)
+    ativo (boolean)
+    created_at
+    updated_at
+
+
+VIEWS
+
+CREATE VIEW tarefas_completas AS
+SELECT 
+    t.*,
+    p.nome as projeto_nome,
+    c.nome_empresa as cliente_nome,
+    ef.nome as escopo_tipo,
+    f.nome as funcionalidade,
+    sf.nome as subfuncionalidade,
+    si.nome as subitem
+FROM tarefas t
+LEFT JOIN subitens si ON t.subitem_id = si.id
+LEFT JOIN subfuncionalidades sf ON si.subfuncionalidade_id = sf.id
+LEFT JOIN funcionalidades f ON sf.funcionalidade_id = f.id
+LEFT JOIN escopos_funcionais ef ON f.escopo_funcional_id = ef.id
+LEFT JOIN projetos p ON ef.projeto_id = p.id
+LEFT JOIN clientes c ON p.cliente_id = c.id;
+
+
+
+CREATE VIEW projeto_resumo AS
+SELECT 
+    p.*,
+    c.nome_empresa as cliente_nome,
+    COUNT(DISTINCT t.id) as total_tarefas,
+    COUNT(CASE WHEN t.status = 'concluida' THEN 1 END) as tarefas_concluidas,
+    (COUNT(CASE WHEN t.status = 'concluida' THEN 1 END) * 100.0 / NULLIF(COUNT(DISTINCT t.id), 0)) as progresso_calculado
+FROM projetos p
+LEFT JOIN clientes c ON p.cliente_id = c.id
+LEFT JOIN escopos_funcionais ef ON p.id = ef.projeto_id
+LEFT JOIN funcionalidades f ON ef.id = f.escopo_funcional_id
+LEFT JOIN subfuncionalidades sf ON f.id = sf.funcionalidade_id
+LEFT JOIN subitens si ON sf.id = si.subfuncionalidade_id
+LEFT JOIN tarefas t ON si.id = t.subitem_id
+GROUP BY p.id;
+
+
+-- Índices para performance
+
+CREATE INDEX idx_projetos_cliente ON projetos(cliente_id);
+CREATE INDEX idx_projetos_status ON projetos(status);
+CREATE INDEX idx_tarefas_projeto ON tarefas(projeto_id);
+CREATE INDEX idx_tarefas_subitem ON tarefas(subitem_id);
+CREATE INDEX idx_tarefas_status ON tarefas(status);
+CREATE INDEX idx_financeiro_contrato ON financeiro(contrato_id);
+CREATE INDEX idx_financeiro_status ON financeiro(status);
+CREATE INDEX idx_cronograma_projeto ON cronograma_entregas(projeto_id);

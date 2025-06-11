@@ -1,0 +1,71 @@
+{
+    "RAZAO_SOCIAL": "Fulanos LTDA.",
+    "CNPJ": "12.345.678/0001-10",
+    "ENDERECO": "Rua Dois, Centro, São Paulo/SP, 00000-000",
+    "REPRESENTANTE": "Fulano da Silva",
+    "CPF": "123.456.789-10",
+    "PROJETO_NOME": "Site Teste",
+    "TECNOLOGIAS": "React, Html, CSS",
+    "INICIO": "06/06/2025",
+    "DATA_ALVO": "30/07/2025",
+    "VALOR_TOTAL": "R$ 1.000,00",
+    "DATA_ASSINATURA": "10/06/2025",
+    "QTD_PARCELAS": 2,
+    "PARCELAS": [
+      {
+        "descricao": "Parcela 1/2",
+        "valor": "R$ 500,00",
+        "forma": "PIX",
+        "data": "10/06/2025"
+      },
+      {
+        "descricao": "Parcela 2/2",
+        "valor": "R$ 500,00",
+        "forma": "PIX",
+        "data": "10/07/2025"
+      }
+    ],
+    "ESCOPO_FUNCIONAL": [
+      {
+        "funcionalidade": "Autenticação de Usuários",
+        "tipo": "Backend",
+        "atributos": [
+          "Login com Google",
+          "Upload de fotos dos usuários"
+        ]
+      },
+      {
+        "funcionalidade": "Design UI/UX",
+        "tipo": "Frontend",
+        "atributos": [
+          "Template Landing Page",
+          "Template Faq",
+          "Template Sobre Nós",
+          "Template Termos de Uso",
+          "Template Política de Privacidade"
+        ]
+      }
+    ],
+    "CRONOGRAMA": [
+      {
+        "fase": "Desenvolvimento Inicial",
+        "periodo": "01/07/2025 – 10/07/2025",
+        "tarefas": [
+          "Landing page responsiva pronta",
+          "Configuração da Autenticação de Usuários"
+        ],
+        "status": "Concluído"
+      },
+      {
+        "fase": "Desenvolvimento Final",
+        "periodo": "11/07/2025 – 30/07/2025",
+        "tarefas": [
+          "Testes finais de comportamento do Database",
+          "Correções de bugs",
+          "Testar Fluxos e rotas"
+        ],
+        "status": "Em andamento"
+      }
+    ]
+  }
+  
