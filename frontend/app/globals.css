@@ -44,26 +44,51 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+  
   .dark {
-    --background: 220 8% 12%; /* Cinza escuro */
-    --foreground: 220 100% 99%; /* Quase branco */
-    --neon-blue: 200 100% 60%;
-    --neon-green: 150 100% 60%;
-    --neon-pink: 320 100% 65%;
-    --neon-purple: 270 100% 70%;
-    --card: 220 8% 16%;
-    --card-foreground: 0 0% 98%;
-    --primary: 200 100% 60%; /* Azul neon padrão */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 285 99% 43%; /* Rosa neon */
-    --secondary-foreground: 0 0% 100%;
-    --muted: 220 8% 20%;
-    --muted-foreground: 0 0% 80%;
-    --accent: 150 100% 60%; /* Verde neon */
-    --accent-foreground: 0 0% 100%;
-    --border: 220 8% 25%;
-    --input: 220 8% 25%;
-    --radius: 0.5rem;
+    /* Backgrounds - Tons de azul escuro e cinza */
+    --background: 222 47% 11%; /* Azul muito escuro */
+    --foreground: 213 31% 91%; /* Branco azulado */
+    
+    /* Cards e superfícies */
+    --card: 222 47% 14%; /* Azul escuro para cards */
+    --card-foreground: 213 31% 91%;
+    --popover: 222 47% 16%;
+    --popover-foreground: 213 31% 91%;
+    
+    /* Primary - Azul ciano tecnológico */
+    --primary: 199 89% 48%; /* Azul ciano vibrante */
+    --primary-foreground: 222 47% 11%;
+    
+    /* Secondary - Azul mais suave */
+    --secondary: 215 25% 27%; /* Azul acinzentado */
+    --secondary-foreground: 213 31% 91%;
+    
+    /* Muted - Tons neutros */
+    --muted: 215 25% 20%;
+    --muted-foreground: 217 10% 64%;
+    
+    /* Accent - Verde ciano para destaques */
+    --accent: 174 72% 56%; /* Verde ciano */
+    --accent-foreground: 222 47% 11%;
+    
+    /* Destructive - Vermelho moderno */
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
+    
+    /* Borders e inputs */
+    --border: 215 25% 27%;
+    --input: 215 25% 27%;
+    --ring: 199 89% 48%;
+    
+    /* Chart colors - Paleta tecnológica */
+    --chart-1: 199 89% 48%; /* Azul ciano */
+    --chart-2: 174 72% 56%; /* Verde ciano */
+    --chart-3: 271 81% 56%; /* Roxo */
+    --chart-4: 47 96% 53%; /* Amarelo */
+    --chart-5: 0 72% 51%; /* Vermelho */
+    
+    --radius: 0.75rem;
   }
 }
 
@@ -71,21 +96,175 @@
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', 'Roboto Mono', 'Fira Mono', 'Menlo', monospace;
-    /* Removi o text-shadow para não poluir o visual */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
+  
+  /* Tipografia com efeitos tecnológicos sutis */
   h1, h2, h3, h4, h5, h6 {
-    color: hsl(var(--neon-blue));
-    text-shadow: 0 0 8px hsl(var(--neon-blue));
+    @apply text-foreground;
+    font-weight: 600;
+    letter-spacing: -0.025em;
   }
+  
+  h1 {
+    @apply text-3xl;
+  }
+  
+  h2 {
+    @apply text-2xl;
+  }
+  
+  h3 {
+    @apply text-xl;
+  }
+  
+  /* Links com hover suave */
   a {
-    color: hsl(var(--neon-pink));
-    text-shadow: 0 0 6px hsl(var(--neon-pink));
+    @apply text-primary transition-colors duration-200;
   }
-  strong, b {
-    color: hsl(var(--neon-green));
-    text-shadow: 0 0 6px hsl(var(--neon-green));
+  
+  a:hover {
+    @apply text-accent;
   }
+  
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50;
+  }
+}
+
+/* Animações e efeitos tecnológicos */
+@layer components {
+  .tech-glow {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+  
+  .tech-border {
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+  }
+  
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background: hsl(var(--card) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+  
+  .neon-text {
+    color: hsl(var(--primary));
+    text-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+  }
+  
+  .gradient-bg {
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
+  }
+  
+  /* Hover effects para cards */
+  .tech-card {
+    @apply tech-border transition-all duration-300;
+  }
+  
+  .tech-card:hover {
+    @apply tech-glow;
+    transform: translateY(-2px);
+  }
+  
+  /* Button enhancements */
+  .tech-button {
+    @apply relative overflow-hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .tech-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.2), transparent);
+    transition: left 0.5s;
+  }
+  
+  .tech-button:hover::before {
+    left: 100%;
+  }
+}
+
+/* Animações personalizadas */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Melhorias para formulários */
+.form-input {
+  @apply bg-card border-border focus:border-primary focus:ring-2 focus:ring-primary/20;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+}
+
+/* Status indicators */
+.status-active {
+  @apply bg-green-500/20 text-green-400 border-green-500/30;
+}
+
+.status-pending {
+  @apply bg-yellow-500/20 text-yellow-400 border-yellow-500/30;
+}
+
+.status-inactive {
+  @apply bg-red-500/20 text-red-400 border-red-500/30;
+}
+
+.status-info {
+  @apply bg-blue-500/20 text-blue-400 border-blue-500/30;
+}
+
+html, body {
+  height: 100%;
+  min-height: 100vh;
 }

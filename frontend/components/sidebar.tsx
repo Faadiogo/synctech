@@ -10,7 +10,6 @@ import {
   FileText,
   CreditCard,
   Calendar,
-  Settings,
   BarChart3,
   CheckSquare,
   Briefcase,
@@ -21,9 +20,11 @@ import {
   FolderTree,
   FilePenLine,
   ListTodo,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import Image from 'next/image';
+
 interface SidebarProps {
   activePage: string;
   onPageChange: (page: string) => void;
@@ -92,12 +93,6 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
       icon: Calendar,
       id: 'meetings',
       section: 'operacional'
-    },
-    {
-      name: 'Configurações',
-      icon: Settings,
-      id: 'settings',
-      section: 'configuracoes'
     }
   ];
 
@@ -119,10 +114,11 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
 
   return (
     <div className={cn(
-      "flex h-full flex-col bg-background border-r border-border transition-all duration-300",
+      "flex flex-col bg-card border-r border-border/50 transition-all duration-300 relative h-screen",
       collapsed ? "w-16" : "w-64"
     )}>
-      <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
+      {/* Header com gradiente sutil */}
+      <div className="flex h-16 items-center justify-between border-b border-border/50 px-4 bg-gradient-to-r from-card to-muted/30">
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center">
@@ -134,21 +130,32 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
           variant="ghost"
           size="sm"
           onClick={onToggleCollapse}
-          className="h-8 w-8 p-0"
+          className="h-8 w-8 p-0 hover:bg-primary/20 transition-colors"
         >
-          {collapsed ? <Image src="/icon-color.png" alt="SynchTech" width={160} height={160} /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? (
+            <div className="relative">
+              <Image src="/icon-color.png" alt="SynchTech" width={24} height={24} />
+              <div className="absolute inset-0 bg-primary/20 rounded blur-sm"></div>
+            </div>
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
         </Button>
       </div>
 
       <ScrollArea className="flex-1 px-3 py-4">
-        <nav className="space-y-6">
+        <nav className="space-y-3">
           {Object.entries(groupedNavigation).map(([section, items]) => (
-            <div key={section}>
+            <div key={section} className="space-y-1">
               {!collapsed && sections[section as keyof typeof sections] && (
-                <div className="px-3 mb-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {sections[section as keyof typeof sections]}
-                  </h3>
+                <div className="px-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-px bg-gradient-to-r from-primary/50 to-transparent flex-1"></div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {sections[section as keyof typeof sections]}
+                    </h3>
+                    <div className="h-px bg-gradient-to-l from-primary/50 to-transparent flex-1"></div>
+                  </div>
                 </div>
               )}
               <div className="space-y-1">
@@ -157,22 +164,42 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
                   return (
                     <Button
                       key={item.id}
-                      variant={isActive ? "secondary" : "ghost"}
+                      variant="ghost"
                       className={cn(
-                        "w-full justify-start gap-3 px-3 py-2.5 text-left font-medium",
+                        "w-full justify-start gap-3 px-3 py-1.5 text-left font-medium transition-all duration-200 relative group",
                         collapsed ? "px-2" : "",
                         isActive
-                          ? "bg-muted text-primary hover:bg-muted/80"
-                          : "text-foreground hover:bg-muted hover:text-primary"
+                          ? "bg-primary/20 text-primary border-r-2 border-primary shadow-lg"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                       )}
                       onClick={() => onPageChange(item.id)}
                       title={collapsed ? item.name : undefined}
                     >
-                      <item.icon className={cn(
-                        "h-5 w-5 flex-shrink-0",
-                        isActive ? "text-primary" : "text-muted-foreground"
-                      )} />
-                      {!collapsed && item.name}
+                      {/* Efeito de glow para item ativo */}
+                      {isActive && (
+                        <div className="absolute inset-0 bg-primary/10 rounded-lg blur-sm"></div>
+                      )}
+                      
+                      <div className={cn(
+                        "relative p-1 rounded-md transition-colors",
+                        isActive ? "bg-primary/30" : "group-hover:bg-primary/20"
+                      )}>
+                        <item.icon className={cn(
+                          "h-4 w-4 flex-shrink-0 transition-colors",
+                          isActive ? "text-primary" : "text-muted-foreground group-hover:text-primary"
+                        )} />
+                      </div>
+                      
+                      {!collapsed && (
+                        <span className="relative">{item.name}</span>
+                      )}
+                      
+                      {/* Indicador de hover */}
+                      {!isActive && (
+                        <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ChevronRight className="h-3 w-3 text-primary" />
+                        </div>
+                      )}
                     </Button>
                   );
                 })}
