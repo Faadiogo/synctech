@@ -84,7 +84,7 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
 
   const getStatusColor = (status: string) => {
     const colors = {
-      'em_aberto': 'bg-yellow-100 text-yellow-800',
+      'em_aberto': 'status-pending',
       'pago': 'bg-green-100 text-green-800',
       'atrasado': 'bg-red-100 text-red-800',
       'cancelado': 'bg-gray-100 text-gray-800'
@@ -123,19 +123,30 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
-          <p className="text-gray-600">Controle de receitas, despesas e pagamentos</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <DollarSign className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Financeiro</h2>
+                <p className="text-muted-foreground">Controle de receitas, despesas e pagamentos</p>
+              </div>
+            </div>
+            <Button onClick={onNewTransaction} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              Nova Transação
+            </Button>
+          </div>
         </div>
-        <Button onClick={onNewTransaction} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Transação
-        </Button>
       </div>
 
-      <Card>
+      <Card className="tech-card">
         <CardHeader>
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -148,9 +159,9 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">
+              <Badge variant="outline" className="status-info">
                 {filteredTransactions.length} transação(ões) encontrada(s)
-              </span>
+              </Badge>
             </div>
           </div>
         </CardHeader>
@@ -170,15 +181,17 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
             </TableHeader>
             <TableBody>
               {filteredTransactions.map((transaction) => (
-                <TableRow key={transaction.id}>
+                <TableRow key={transaction.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {transaction.tipo_movimento === 'entrada' ? (
-                        <TrendingUp className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <TrendingDown className="h-4 w-4 text-red-600" />
-                      )}
-                      <span className={transaction.tipo_movimento === 'entrada' ? 'text-green-600' : 'text-red-600'}>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${transaction.tipo_movimento === 'entrada' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                        {transaction.tipo_movimento === 'entrada' ? (
+                          <TrendingUp className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                      <span className={transaction.tipo_movimento === 'entrada' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
                         {transaction.tipo_movimento === 'entrada' ? 'Entrada' : 'Saída'}
                       </span>
                     </div>
@@ -186,7 +199,7 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
                   <TableCell>
                     <div>
                       <div className="font-medium">{transaction.descricao}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-muted-foreground">
                         {getPaymentMethodText(transaction.forma_pagamento)}
                         {transaction.numero_parcela && ` • Parcela ${transaction.numero_parcela}`}
                       </div>
@@ -195,7 +208,7 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
                   <TableCell>
                     <div>
                       <div className="font-medium">{transaction.cliente_nome}</div>
-                      <div className="text-sm text-gray-500">{transaction.contrato_numero}</div>
+                      <div className="text-sm text-muted-foreground">{transaction.contrato_numero}</div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -216,7 +229,7 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
                         {new Date(transaction.data_pagamento).toLocaleDateString('pt-BR')}
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-sm">Não pago</span>
+                      <span className="text-muted-foreground text-sm">Não pago</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -230,7 +243,7 @@ export function FinancialList({ onNewTransaction }: FinancialListProps) {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="hover:bg-muted">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, FileText, User, DollarSign } from 'lucide-react';
 
 interface ContractFormProps {
   onClose: () => void;
@@ -77,21 +77,37 @@ export function ContractForm({ onClose }: ContractFormProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Novo Contrato</h2>
-          <p className="text-gray-600">Crie um novo contrato baseado em um orçamento aprovado</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center gap-4 mb-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/20">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Novo Contrato</h2>
+                <p className="text-muted-foreground">Crie um novo contrato baseado em um orçamento aprovado</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <Card>
+        <Card className="tech-card">
           <CardHeader>
-            <CardTitle>Informações do Contrato</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <FileText className="h-5 w-5 text-blue-400" />
+              </div>
+              Informações do Contrato
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Seleção de Cliente, Projeto e Orçamento */}
@@ -155,38 +171,47 @@ export function ContractForm({ onClose }: ContractFormProps) {
             </div>
 
             {/* Valores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="valor_orcado">Valor Orçado (R$)</Label>
-                <Input
-                  id="valor_orcado"
-                  type="number"
-                  step="0.01"
-                  value={formData.valor_orcado}
-                  onChange={(e) => handleInputChange('valor_orcado', e.target.value)}
-                  disabled
-                />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-green-500/20">
+                  <DollarSign className="h-4 w-4 text-green-400" />
+                </div>
+                <h3 className="text-lg font-medium">Valores</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="desconto">Desconto (R$)</Label>
-                <Input
-                  id="desconto"
-                  type="number"
-                  step="0.01"
-                  value={formData.desconto}
-                  onChange={(e) => handleInputChange('desconto', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="valor_contrato">Valor do Contrato (R$)</Label>
-                <Input
-                  id="valor_contrato"
-                  type="number"
-                  step="0.01"
-                  value={formData.valor_contrato}
-                  disabled
-                  className="font-bold"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="valor_orcado">Valor Orçado (R$)</Label>
+                  <Input
+                    id="valor_orcado"
+                    type="number"
+                    step="0.01"
+                    value={formData.valor_orcado}
+                    onChange={(e) => handleInputChange('valor_orcado', e.target.value)}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="desconto">Desconto (R$)</Label>
+                  <Input
+                    id="desconto"
+                    type="number"
+                    step="0.01"
+                    value={formData.desconto}
+                    onChange={(e) => handleInputChange('desconto', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="valor_contrato">Valor do Contrato (R$)</Label>
+                  <Input
+                    id="valor_contrato"
+                    type="number"
+                    step="0.01"
+                    value={formData.valor_contrato}
+                    disabled
+                    className="font-bold bg-green-50 border-green-200"
+                  />
+                </div>
               </div>
             </div>
 
@@ -238,7 +263,7 @@ export function ContractForm({ onClose }: ContractFormProps) {
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2">
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
                 <Save className="h-4 w-4" />
                 Salvar Contrato
               </Button>

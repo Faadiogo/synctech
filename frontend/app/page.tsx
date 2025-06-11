@@ -40,11 +40,13 @@ import { ScopeList } from '@/components/scopes/scope-list';
 import { ScheduleList } from '@/components/schedules/schedule-list';
 import { ScopeForm } from '@/components/scopes/scope-form';
 import { ScheduleForm } from '@/components/schedules/schedule-form';
+import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const router = useRouter();
 
   // Mock data for dashboard
   const stats = {
@@ -113,7 +115,7 @@ export default function Dashboard() {
 
     switch (activePage) {
       case 'clients':
-        return <ClientList onNewClient={() => setShowForm(true)} />;
+        return <ClientList />;
       case 'projects':
         return <ProjectList onNewProject={() => setShowForm(true)} />;
       case 'budgets':
@@ -127,9 +129,9 @@ export default function Dashboard() {
       case 'tasks':
         return <TaskList onNewTask={() => setShowForm(true)} />;
       case 'scopes':
-        return <ScopeList />;
+        return <ScopeList onNewScope={() => setShowForm(true)} />;
       case 'schedules':
-        return <ScheduleList />;
+        return <ScheduleList onNewSchedule={() => setShowForm(true)} />;
       default:
         return (
           <div className="space-y-8 animate-slide-in">
@@ -149,7 +151,7 @@ export default function Dashboard() {
 
             {/* Stats Grid com efeitos visuais */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Clientes Ativos</CardTitle>
                   <div className="p-2 rounded-lg bg-blue-500/20 group-hover:bg-blue-500/30 transition-colors">
@@ -165,7 +167,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Projetos Ativos</CardTitle>
                   <div className="p-2 rounded-lg bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors">
@@ -181,7 +183,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Valor em Projetos</CardTitle>
                   <div className="p-2 rounded-lg bg-green-500/20 group-hover:bg-green-500/30 transition-colors">
@@ -197,7 +199,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Tarefas Pendentes</CardTitle>
                   <div className="p-2 rounded-lg bg-orange-500/20 group-hover:bg-orange-500/30 transition-colors">
@@ -216,7 +218,7 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               {/* Projetos em Andamento */}
-              <Card className="tech-card">
+              <Card className="tech-card transition-all duration-300 hover:-translate-y-2">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <div className="p-2 rounded-lg bg-primary/20">
@@ -253,7 +255,7 @@ export default function Dashboard() {
               </Card>
 
               {/* Tarefas Próximas */}
-              <Card className="tech-card">
+              <Card className="tech-card transition-all duration-300 hover:-translate-y-2">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <div className="p-2 rounded-lg bg-accent/20">
@@ -291,7 +293,7 @@ export default function Dashboard() {
 
             {/* Bottom Stats com visual melhorado */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Horas Trabalhadas</CardTitle>
                   <div className="p-2 rounded-lg bg-blue-500/20 group-hover:bg-blue-500/30 transition-colors">
@@ -307,7 +309,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Reuniões Hoje</CardTitle>
                   <div className="p-2 rounded-lg bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors">
@@ -323,7 +325,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="tech-card group">
+              <Card className="tech-card group transition-all duration-300 hover:-translate-y-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Sucesso</CardTitle>
                   <div className="p-2 rounded-lg bg-green-500/20 group-hover:bg-green-500/30 transition-colors">

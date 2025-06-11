@@ -295,3 +295,5 @@ CREATE INDEX idx_tarefas_status ON tarefas(status);
 CREATE INDEX idx_financeiro_contrato ON financeiro(contrato_id);
 CREATE INDEX idx_financeiro_status ON financeiro(status);
 CREATE INDEX idx_cronograma_projeto ON cronograma_entregas(projeto_id);
+
+

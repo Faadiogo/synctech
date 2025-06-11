@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste API</title>
+</head>
+<body>
+    <h1>Teste da API</h1>
+    <button onclick="testarClientes()">Testar Clientes</button>
+    <div id="resultado"></div>
+
+    <script>
+        async function testarClientes() {
+            const resultado = document.getElementById('resultado');
+            resultado.innerHTML = 'Carregando...';
+            
+            try {
+                console.log('🔍 Testando API de clientes...');
+                const response = await fetch('http://localhost:3001/api/clientes');
+                console.log('📡 Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Dados recebidos:', data);
+                
+                resultado.innerHTML = `
+                    <h2>Sucesso!</h2>
+                    <p>Clientes encontrados: ${data.data ? data.data.length : 0}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                resultado.innerHTML = `
+                    <h2>Erro!</h2>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 

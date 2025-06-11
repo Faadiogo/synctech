@@ -30,7 +30,8 @@ import {
   Circle,
   Play,
   Edit,
-  Trash2
+  Trash2,
+  CheckSquare
 } from 'lucide-react';
 
 interface Task {
@@ -117,7 +118,7 @@ export function TaskList({ onNewTask }: TaskListProps) {
   const getPriorityColor = (prioridade: string) => {
     const colors = {
       'baixa': 'bg-gray-100 text-gray-800',
-      'media': 'bg-blue-100 text-blue-800',
+      'media': 'status-info',
       'alta': 'bg-orange-100 text-orange-800',
       'critica': 'bg-red-100 text-red-800'
     };
@@ -145,19 +146,30 @@ export function TaskList({ onNewTask }: TaskListProps) {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Tarefas</h2>
-          <p className="text-gray-600">Gerencie todas as tarefas dos projetos</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <CheckSquare className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Tarefas</h2>
+                <p className="text-muted-foreground">Gerencie todas as tarefas dos projetos</p>
+              </div>
+            </div>
+            <Button onClick={onNewTask} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              Nova Tarefa
+            </Button>
+          </div>
         </div>
-        <Button onClick={onNewTask} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Tarefa
-        </Button>
       </div>
 
-      <Card>
+      <Card className="tech-card">
         <CardHeader>
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -170,9 +182,9 @@ export function TaskList({ onNewTask }: TaskListProps) {
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">
+              <Badge variant="outline" className="status-info">
                 {filteredTasks.length} tarefa(s) encontrada(s)
-              </span>
+              </Badge>
             </div>
           </div>
         </CardHeader>
@@ -194,24 +206,28 @@ export function TaskList({ onNewTask }: TaskListProps) {
               {filteredTasks.map((task) => {
                 const StatusIcon = getStatusIcon(task.status);
                 return (
-                  <TableRow key={task.id} className={task.status === 'concluida' ? 'opacity-60' : ''}>
+                  <TableRow key={task.id} className={`hover:bg-muted/50 transition-colors ${task.status === 'concluida' ? 'opacity-60' : ''}`}>
                     <TableCell>
-                      <StatusIcon className={`h-5 w-5 ${getStatusColor(task.status)}`} />
+                      <div className="p-2 rounded-lg bg-blue-500/20">
+                        <StatusIcon className={`h-4 w-4 ${getStatusColor(task.status)}`} />
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className={`font-medium ${task.status === 'concluida' ? 'line-through' : ''}`}>
-                          {task.titulo}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {getStatusText(task.status)}
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className={`font-medium ${task.status === 'concluida' ? 'line-through' : ''}`}>
+                            {task.titulo}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {getStatusText(task.status)}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium text-sm">{task.projeto_nome}</div>
-                        <div className="text-sm text-gray-500">{task.cliente_nome}</div>
+                        <div className="text-sm text-muted-foreground">{task.cliente_nome}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -239,7 +255,7 @@ export function TaskList({ onNewTask }: TaskListProps) {
                               {task.horas_trabalhadas}h / {task.horas_estimadas}h
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-muted-foreground mt-1">
                             {Math.round(((task.horas_trabalhadas || 0) / task.horas_estimadas) * 100)}% concluído
                           </div>
                         </div>
@@ -251,7 +267,7 @@ export function TaskList({ onNewTask }: TaskListProps) {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="hover:bg-muted">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

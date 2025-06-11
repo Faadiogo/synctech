@@ -19,16 +19,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  Search, 
-  Plus, 
-  MoreHorizontal, 
-  Calendar, 
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  Calendar,
   Briefcase,
   Download,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  DollarSign,
+  FileText,
 } from 'lucide-react';
 
 interface Contract {
@@ -48,7 +50,7 @@ interface ContractListProps {
 
 export function ContractList({ onNewContract }: ContractListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Mock data
   const contracts: Contract[] = [
     {
@@ -66,7 +68,7 @@ export function ContractList({ onNewContract }: ContractListProps) {
   const getStatusColor = (status: string) => {
     const colors = {
       'ativo': 'bg-green-100 text-green-800',
-      'concluido': 'bg-blue-100 text-blue-800',
+      'concluido': 'status-info',
       'cancelado': 'bg-red-100 text-red-800'
     };
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
@@ -91,19 +93,30 @@ export function ContractList({ onNewContract }: ContractListProps) {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Contratos</h2>
-          <p className="text-gray-600">Gerencie contratos e documentos legais</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Contratos</h2>
+                <p className="text-muted-foreground">Gerencie contratos e documentos legais</p>
+              </div>
+            </div>
+            <Button onClick={onNewContract} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              Novo Contrato
+            </Button>
+          </div>
         </div>
-        <Button onClick={onNewContract} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Contrato
-        </Button>
       </div>
 
-      <Card>
+      <Card className="tech-card">
         <CardHeader>
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -116,9 +129,9 @@ export function ContractList({ onNewContract }: ContractListProps) {
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">
+              <Badge variant="outline" className="status-info">
                 {filteredContracts.length} contrato(s) encontrado(s)
-              </span>
+              </Badge>
             </div>
           </div>
         </CardHeader>
@@ -132,25 +145,27 @@ export function ContractList({ onNewContract }: ContractListProps) {
                 <TableHead>Valor</TableHead>
                 <TableHead>Parcelas</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredContracts.map((contract) => (
-                <TableRow key={contract.id}>
+                <TableRow key={contract.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/20">
+                        <Briefcase className="h-4 w-4 text-blue-400" />
+                      </div>
                       <div>
                         <div className="font-medium">{contract.numero_contrato}</div>
-                        <div className="text-sm text-gray-500">ID: #{contract.id}</div>
+                        <div className="text-sm text-muted-foreground">ID: #{contract.id}</div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
                       <div className="font-medium">{contract.cliente_nome}</div>
-                      <div className="text-sm text-gray-500">{contract.projeto_nome}</div>
+                      <div className="text-sm text-muted-foreground">{contract.projeto_nome}</div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -160,50 +175,57 @@ export function ContractList({ onNewContract }: ContractListProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">
+                    <div className="font-medium text-green-600">
                       R$ {contract.valor_contrato.toLocaleString('pt-BR')}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="status-pending">
                       {contract.qtd_parcelas}x
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className={getStatusColor(contract.status)}
                     >
                       {getStatusText(contract.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Download className="mr-2 h-4 w-4" />
-                          Download PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>Ver parcelas</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Cancelar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="bg-blue-800 text-white hover:bg-blue-900 cursor-pointer"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="hover:bg-muted">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <DollarSign className="mr-2 h-4 w-4" />
+                            Ver parcelas
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Cancelar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

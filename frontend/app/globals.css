@@ -183,7 +183,6 @@
   
   .tech-card:hover {
     @apply tech-glow;
-    transform: translateY(-2px);
   }
   
   /* Button enhancements */
@@ -262,6 +261,9 @@
 
 .status-info {
   @apply bg-blue-500/20 text-blue-400 border-blue-500/30;
+}
+.status-soft-green {
+  @apply bg-green-200/20 text-green-200 border-green-400/30;
 }
 
 html, body {

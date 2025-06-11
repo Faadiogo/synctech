@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, DollarSign, Calendar, CreditCard, FileText } from 'lucide-react';
 
 interface FinancialFormProps {
   onClose: () => void;
@@ -61,21 +61,37 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Nova Transação</h2>
-          <p className="text-gray-600">Registre uma nova movimentação financeira</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center gap-4 mb-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/20">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <DollarSign className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Nova Transação</h2>
+                <p className="text-muted-foreground">Registre uma nova movimentação financeira</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <Card>
+        <Card className="tech-card">
           <CardHeader>
-            <CardTitle>Informações da Transação</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <DollarSign className="h-5 w-5 text-blue-400" />
+              </div>
+              Informações da Transação
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Tipo e Contrato */}
@@ -127,58 +143,74 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
             </div>
 
             {/* Valor e Forma de Pagamento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="valor">Valor (R$) *</Label>
-                <Input
-                  id="valor"
-                  type="number"
-                  step="0.01"
-                  value={formData.valor}
-                  onChange={(e) => handleInputChange('valor', e.target.value)}
-                  required
-                />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-green-500/20">
+                  <CreditCard className="h-4 w-4 text-green-400" />
+                </div>
+                <h3 className="text-lg font-medium">Pagamento</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="forma_pagamento">Forma de Pagamento *</Label>
-                <Select 
-                  value={formData.forma_pagamento} 
-                  onValueChange={(value) => handleInputChange('forma_pagamento', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formasPagamento.map(forma => (
-                      <SelectItem key={forma.value} value={forma.value}>
-                        {forma.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="valor">Valor (R$) *</Label>
+                  <Input
+                    id="valor"
+                    type="number"
+                    step="0.01"
+                    value={formData.valor}
+                    onChange={(e) => handleInputChange('valor', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="forma_pagamento">Forma de Pagamento *</Label>
+                  <Select 
+                    value={formData.forma_pagamento} 
+                    onValueChange={(value) => handleInputChange('forma_pagamento', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formasPagamento.map(forma => (
+                        <SelectItem key={forma.value} value={forma.value}>
+                          {forma.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
             {/* Datas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="data_vencimento">Data de Vencimento *</Label>
-                <Input
-                  id="data_vencimento"
-                  type="date"
-                  value={formData.data_vencimento}
-                  onChange={(e) => handleInputChange('data_vencimento', e.target.value)}
-                  required
-                />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <Calendar className="h-4 w-4 text-purple-400" />
+                </div>
+                <h3 className="text-lg font-medium">Datas</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="data_pagamento">Data de Pagamento</Label>
-                <Input
-                  id="data_pagamento"
-                  type="date"
-                  value={formData.data_pagamento}
-                  onChange={(e) => handleInputChange('data_pagamento', e.target.value)}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="data_vencimento">Data de Vencimento *</Label>
+                  <Input
+                    id="data_vencimento"
+                    type="date"
+                    value={formData.data_vencimento}
+                    onChange={(e) => handleInputChange('data_vencimento', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="data_pagamento">Data de Pagamento</Label>
+                  <Input
+                    id="data_pagamento"
+                    type="date"
+                    value={formData.data_pagamento}
+                    onChange={(e) => handleInputChange('data_pagamento', e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -230,7 +262,7 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2">
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
                 <Save className="h-4 w-4" />
                 Salvar Transação
               </Button>

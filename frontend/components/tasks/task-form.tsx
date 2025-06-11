@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, CheckSquare, Calendar, Clock, User, FileText } from 'lucide-react';
 
 interface TaskFormProps {
   onClose: () => void;
@@ -68,21 +68,37 @@ export function TaskForm({ onClose }: TaskFormProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Nova Tarefa</h2>
-          <p className="text-gray-600">Crie uma nova tarefa para o projeto</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center gap-4 mb-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/20">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <CheckSquare className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Nova Tarefa</h2>
+                <p className="text-muted-foreground">Crie uma nova tarefa para o projeto</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <Card>
+        <Card className="tech-card">
           <CardHeader>
-            <CardTitle>Informações da Tarefa</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <CheckSquare className="h-5 w-5 text-blue-400" />
+              </div>
+              Informações da Tarefa
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Projeto e Título */}
@@ -117,108 +133,140 @@ export function TaskForm({ onClose }: TaskFormProps) {
             </div>
 
             {/* Descrição */}
-            <div className="space-y-2">
-              <Label htmlFor="descricao">Descrição</Label>
-              <Textarea
-                id="descricao"
-                value={formData.descricao}
-                onChange={(e) => handleInputChange('descricao', e.target.value)}
-                rows={3}
-              />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-green-500/20">
+                  <FileText className="h-4 w-4 text-green-400" />
+                </div>
+                <h3 className="text-lg font-medium">Descrição</h3>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="descricao">Descrição</Label>
+                <Textarea
+                  id="descricao"
+                  value={formData.descricao}
+                  onChange={(e) => handleInputChange('descricao', e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
 
             {/* Status e Prioridade */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={(value) => handleInputChange('status', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <CheckSquare className="h-4 w-4 text-purple-400" />
+                </div>
+                <h3 className="text-lg font-medium">Status e Prioridade</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="prioridade">Prioridade</Label>
-                <Select 
-                  value={formData.prioridade} 
-                  onValueChange={(value) => handleInputChange('prioridade', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prioridadeOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select 
+                    value={formData.status} 
+                    onValueChange={(value) => handleInputChange('status', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prioridade">Prioridade</Label>
+                  <Select 
+                    value={formData.prioridade} 
+                    onValueChange={(value) => handleInputChange('prioridade', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prioridadeOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
             {/* Datas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="data_inicio">Data de Início</Label>
-                <Input
-                  id="data_inicio"
-                  type="date"
-                  value={formData.data_inicio}
-                  onChange={(e) => handleInputChange('data_inicio', e.target.value)}
-                />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-orange-500/20">
+                  <Calendar className="h-4 w-4 text-orange-400" />
+                </div>
+                <h3 className="text-lg font-medium">Datas</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="data_alvo">Data Alvo</Label>
-                <Input
-                  id="data_alvo"
-                  type="date"
-                  value={formData.data_alvo}
-                  onChange={(e) => handleInputChange('data_alvo', e.target.value)}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="data_inicio">Data de Início</Label>
+                  <Input
+                    id="data_inicio"
+                    type="date"
+                    value={formData.data_inicio}
+                    onChange={(e) => handleInputChange('data_inicio', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="data_alvo">Data Alvo</Label>
+                  <Input
+                    id="data_alvo"
+                    type="date"
+                    value={formData.data_alvo}
+                    onChange={(e) => handleInputChange('data_alvo', e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Horas e Responsável */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="horas_estimadas">Horas Estimadas</Label>
-                <Input
-                  id="horas_estimadas"
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={formData.horas_estimadas}
-                  onChange={(e) => handleInputChange('horas_estimadas', e.target.value)}
-                />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-teal-500/20">
+                  <Clock className="h-4 w-4 text-teal-400" />
+                </div>
+                <h3 className="text-lg font-medium">Recursos</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="responsavel">Responsável</Label>
-                <Select 
-                  value={formData.responsavel} 
-                  onValueChange={(value) => handleInputChange('responsavel', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {responsaveis.map(responsavel => (
-                      <SelectItem key={responsavel} value={responsavel}>
-                        {responsavel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="horas_estimadas">Horas Estimadas</Label>
+                  <Input
+                    id="horas_estimadas"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.horas_estimadas}
+                    onChange={(e) => handleInputChange('horas_estimadas', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="responsavel">Responsável</Label>
+                  <Select 
+                    value={formData.responsavel} 
+                    onValueChange={(value) => handleInputChange('responsavel', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um responsável" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {responsaveis.map(responsavel => (
+                        <SelectItem key={responsavel} value={responsavel}>
+                          {responsavel}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
@@ -238,7 +286,7 @@ export function TaskForm({ onClose }: TaskFormProps) {
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2">
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
                 <Save className="h-4 w-4" />
                 Salvar Tarefa
               </Button>

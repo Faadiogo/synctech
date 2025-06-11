@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, FileText } from 'lucide-react';
 
 interface BudgetFormProps {
   onClose: () => void;
@@ -101,23 +101,39 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
   const valorTotal = valorSubtotal - valorDesconto;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Novo Orçamento</h2>
-          <p className="text-gray-600">Crie um novo orçamento para o cliente</p>
+    <div className="space-y-8 animate-slide-in">
+      {/* Header moderno com gradiente */}
+      <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="relative">
+          <div className="flex items-center gap-4 mb-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/20">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">Novo Orçamento</h2>
+                <p className="text-muted-foreground">Crie um novo orçamento para o cliente</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">
           {/* Informações Básicas */}
-          <Card>
+          <Card className="tech-card">
             <CardHeader>
-              <CardTitle>Informações do Orçamento</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-500/20">
+                  <FileText className="h-5 w-5 text-blue-400" />
+                </div>
+                Informações do Orçamento
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -173,17 +189,22 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
           </Card>
 
           {/* Itens do Orçamento */}
-          <Card>
+          <Card className="tech-card">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Itens do Orçamento</CardTitle>
-              <Button type="button" onClick={adicionarItem} size="sm" className="gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-green-500/20">
+                  <Plus className="h-5 w-5 text-green-400" />
+                </div>
+                Itens do Orçamento
+              </CardTitle>
+              <Button type="button" onClick={adicionarItem} size="sm" className="gap-2 bg-green-600 hover:bg-green-700">
                 <Plus className="h-4 w-4" />
                 Adicionar Item
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               {itens.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-12 gap-4 items-end p-4 border rounded-lg">
+                <div key={item.id} className="grid grid-cols-12 gap-4 items-end p-4 border border-border/50 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                   <div className="col-span-5">
                     <Label>Descrição</Label>
                     <Input
@@ -215,6 +236,7 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
                     <Input
                       value={`R$ ${item.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                       disabled
+                      className="bg-muted"
                     />
                   </div>
                   <div className="col-span-1">
@@ -224,6 +246,7 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
                       size="sm"
                       onClick={() => removerItem(item.id)}
                       disabled={itens.length === 1}
+                      className="hover:bg-red-100 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -234,9 +257,14 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
           </Card>
 
           {/* Totais */}
-          <Card>
+          <Card className="tech-card">
             <CardHeader>
-              <CardTitle>Totais</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <FileText className="h-5 w-5 text-purple-400" />
+                </div>
+                Totais
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -245,6 +273,7 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
                   <Input
                     value={`R$ ${valorSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                     disabled
+                    className="bg-muted"
                   />
                 </div>
                 <div className="space-y-2">
@@ -262,7 +291,7 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
                   <Input
                     value={`R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                     disabled
-                    className="font-bold text-lg"
+                    className="font-bold text-lg bg-green-50 border-green-200"
                   />
                 </div>
               </div>
@@ -283,7 +312,7 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" className="gap-2">
+            <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
               <Save className="h-4 w-4" />
               Salvar Orçamento
             </Button>

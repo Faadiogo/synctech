@@ -65,13 +65,13 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
       section: 'cadastros'
     },
     {
-      name: 'Escopo Funcional',
+      name: 'Escopos',
       icon: FolderTree,
       id: 'scopes',
       section: 'cadastros'
     },
     {
-      name: 'Cronograma',
+      name: 'Cronogramas',
       icon: ListTodo,
       id: 'schedules',
       section: 'cadastros'
