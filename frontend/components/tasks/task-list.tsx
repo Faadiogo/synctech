@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/scopes/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Input } from '@/components/scopes/ui/input';
+import { Badge } from '@/components/scopes/ui/badge';
 import {
   Table,
   TableBody,
@@ -12,13 +12,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from '@/components/scopes/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/scopes/ui/dropdown-menu';
 import { 
   Search, 
   Plus, 
@@ -31,8 +31,19 @@ import {
   Play,
   Edit,
   Trash2,
-  CheckSquare
+  CheckSquare,
+  ChevronDown,
+  Square,
+  ChevronUp
 } from 'lucide-react';
+import { Checkbox } from '@/components/scopes/ui/checkbox';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/scopes/ui/select';
 
 interface Task {
   id: number;
@@ -49,11 +60,15 @@ interface Task {
 }
 
 interface TaskListProps {
-  onNewTask: () => void;
+  onNewTask?: () => void;
+  refreshTrigger?: number;
 }
 
-export function TaskList({ onNewTask }: TaskListProps) {
+export function TaskList({ onNewTask, refreshTrigger }: TaskListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTasks, setSelectedTasks] = useState<number[]>([]);
+  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'nao_iniciada' | 'em_andamento' | 'concluida' | 'cancelada'>('todos');
   
   // Mock data
   const tasks: Task[] = [
@@ -137,13 +152,46 @@ export function TaskList({ onNewTask }: TaskListProps) {
 
   const filteredTasks = tasks.filter(task => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       task.titulo.toLowerCase().includes(searchLower) ||
       task.projeto_nome.toLowerCase().includes(searchLower) ||
       task.cliente_nome.toLowerCase().includes(searchLower) ||
       task.responsavel.toLowerCase().includes(searchLower)
     );
+    const matchesStatus = statusFilter === 'todos' ? true : task.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
+
+  const getTaskCount = (count: number) => {
+    if (count === 0) return '0 tarefas';
+    if (count === 1) return '1 tarefa';
+    return `${count} tarefas`;
+  };
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedTasks([]);
+      setIsAllSelected(false);
+    } else {
+      setSelectedTasks(filteredTasks.map(t => t.id));
+      setIsAllSelected(true);
+    }
+  };
+
+  const handleSelectTask = (id: number) => {
+    setSelectedTasks(prev => {
+      const n = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
+      setIsAllSelected(n.length === filteredTasks.length);
+      return n;
+    });
+  };
+
+  const handleBulkAction = (action: 'concluir' | 'cancelar' | 'excluir') => {
+    if (selectedTasks.length === 0) return;
+    console.log('bulk', action, selectedTasks);
+    setSelectedTasks([]);
+    setIsAllSelected(false);
+  };
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -161,6 +209,11 @@ export function TaskList({ onNewTask }: TaskListProps) {
                 <p className="text-muted-foreground">Gerencie todas as tarefas dos projetos</p>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="status-info w-52 text-center justify-center text-lg">
+                Total: {getTaskCount(filteredTasks.length)}
+              </Badge>
+            </div>
             <Button onClick={onNewTask} className="gap-2 bg-primary hover:bg-primary/90">
               <Plus className="h-4 w-4" />
               Nova Tarefa
@@ -171,8 +224,8 @@ export function TaskList({ onNewTask }: TaskListProps) {
 
       <Card className="tech-card">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-4 justify-between">
+            <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 placeholder="Buscar tarefas..."
@@ -181,10 +234,48 @@ export function TaskList({ onNewTask }: TaskListProps) {
                 className="pl-10"
               />
             </div>
+            {selectedTasks.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                  {selectedTasks.length} selecionada(s)
+                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      Ações em Lote
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleBulkAction('concluir')}>
+                      <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                      Concluir Selecionadas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction('cancelar')}>
+                      <AlertCircle className="mr-2 h-4 w-4 text-orange-600" />
+                      Cancelar Selecionadas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction('excluir')}>
+                      <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                      Excluir Selecionadas
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="status-info">
-                {filteredTasks.length} tarefa(s) encontrada(s)
-              </Badge>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="nao_iniciada">Não Iniciada</SelectItem>
+                  <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                  <SelectItem value="concluida">Concluída</SelectItem>
+                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -192,14 +283,16 @@ export function TaskList({ onNewTask }: TaskListProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-12">
+                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Selecionar todos" />
+                </TableHead>
                 <TableHead>Tarefa</TableHead>
                 <TableHead>Projeto/Cliente</TableHead>
                 <TableHead>Prioridade</TableHead>
                 <TableHead>Prazo</TableHead>
                 <TableHead>Horas</TableHead>
                 <TableHead>Responsável</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -208,9 +301,7 @@ export function TaskList({ onNewTask }: TaskListProps) {
                 return (
                   <TableRow key={task.id} className={`hover:bg-muted/50 transition-colors ${task.status === 'concluida' ? 'opacity-60' : ''}`}>
                     <TableCell>
-                      <div className="p-2 rounded-lg bg-blue-500/20">
-                        <StatusIcon className={`h-4 w-4 ${getStatusColor(task.status)}`} />
-                      </div>
+                      <Checkbox checked={selectedTasks.includes(task.id)} onCheckedChange={() => handleSelectTask(task.id)} aria-label={`Selecionar tarefa ${task.titulo}`} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -265,30 +356,19 @@ export function TaskList({ onNewTask }: TaskListProps) {
                       <div className="text-sm">{task.responsavel}</div>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="hover:bg-muted">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>Registrar tempo</DropdownMenuItem>
-                          {task.status !== 'concluida' && (
-                            <DropdownMenuItem>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Marcar como concluída
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center gap-2 justify-center">
+                        <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar">
+                          <Edit className="h-4 w-4" />
+                        </Badge>
+                        {task.status !== 'concluida' && (
+                          <Badge variant="outline" className="bg-green-500 text-white cursor-pointer hover:bg-green-600" title="Concluir">
+                            <CheckCircle className="h-4 w-4" />
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Excluir">
+                          <Trash2 className="h-4 w-4" />
+                        </Badge>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

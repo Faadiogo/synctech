@@ -36,38 +36,36 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // Importar rotas
-const clientesRoutes = require('./routes/clientes');
 const clientesSupabaseRoutes = require('./routes/clientes-supabase');
-const projetosRoutes = require('./routes/projetos');
-const orcamentosRoutes = require('./routes/orcamentos');
-const contratosRoutes = require('./routes/contratos');
-const financeiroRoutes = require('./routes/financeiro');
-const reunioesRoutes = require('./routes/reunioes');
-const escoposRoutes = require('./routes/escopos');
-const cronogramaRoutes = require('./routes/cronograma');
-const tarefasRoutes = require('./routes/tarefas');
-const tecnologiasRoutes = require('./routes/tecnologias');
+const projetosSupabaseRoutes = require('./routes/projetos-supabase');
+const orcamentosSupabaseRoutes = require('./routes/orcamentos-supabase');
+const contratosSupabaseRoutes = require('./routes/contratos-supabase');
+const financeiroSupabaseRoutes = require('./routes/financeiro-supabase');
+const reunioesSupabaseRoutes = require('./routes/reunioes-supabase');
+const escoposSupabaseRoutes = require('./routes/escopos-supabase');
+const cronogramaSupabaseRoutes = require('./routes/cronograma-supabase');
+const tarefasSupabaseRoutes = require('./routes/tarefas-supabase');
+const tecnologiasSupabaseRoutes = require('./routes/tecnologias-supabase');
+const dashboardSupabaseRoutes = require('./routes/dashboard-supabase');
 const templatesRoutes = require('./routes/templates');
-const dashboardRoutes = require('./routes/dashboard');
 
 // Documentação da API
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 
 // Usar rotas
-app.use('/api/clientes', clientesRoutes);
 app.use('/api/clientes-supabase', clientesSupabaseRoutes);
-app.use('/api/projetos', projetosRoutes);
-app.use('/api/orcamentos', orcamentosRoutes);
-app.use('/api/contratos', contratosRoutes);
-app.use('/api/financeiro', financeiroRoutes);
-app.use('/api/reunioes', reunioesRoutes);
-app.use('/api/escopos', escoposRoutes);
-app.use('/api/cronograma', cronogramaRoutes);
-app.use('/api/tarefas', tarefasRoutes);
-app.use('/api/tecnologias', tecnologiasRoutes);
+app.use('/api/projetos-supabase', projetosSupabaseRoutes);
+app.use('/api/orcamentos-supabase', orcamentosSupabaseRoutes);
+app.use('/api/contratos-supabase', contratosSupabaseRoutes);
+app.use('/api/financeiro-supabase', financeiroSupabaseRoutes);
+app.use('/api/reunioes-supabase', reunioesSupabaseRoutes);
+app.use('/api/escopos-supabase', escoposSupabaseRoutes);
+app.use('/api/cronograma-supabase', cronogramaSupabaseRoutes);
+app.use('/api/tarefas-supabase', tarefasSupabaseRoutes);
+app.use('/api/tecnologias-supabase', tecnologiasSupabaseRoutes);
+app.use('/api/dashboard-supabase', dashboardSupabaseRoutes);
 app.use('/api/templates', templatesRoutes);
-app.use('/api/dashboard', dashboardRoutes);
 
 // Documentação Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, User, Building2, MapPin, Phone, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Input } from '@/components/scopes/ui/input';
+import { Label } from '@/components/scopes/ui/label';
+import { Textarea } from '@/components/scopes/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
+import { Switch } from '@/components/scopes/ui/switch';
+import { ArrowLeft, Save, User, Building2, MapPin, Phone, Loader2, Upload, X, Camera } from 'lucide-react';
 import { clientesService } from '@/lib/services/clientes';
+import { cloudinaryService } from '@/lib/services/cloudinary';
 import { Cliente } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,7 +36,7 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
     uf: string;
     telefone: string;
     email: string;
-    observacoes: string;
+    foto_url: string;
     ativo: boolean;
   }>({
     tipo_pessoa: 'PJ',
@@ -52,13 +53,16 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
     uf: '',
     telefone: '',
     email: '',
-    observacoes: '',
+    foto_url: '',
     ativo: true
   });
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!!clienteId);
   const [cepLoading, setCepLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   const { toast } = useToast();
 
   // Carregar dados do cliente se for edição
@@ -88,9 +92,13 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
         uf: cliente.uf || '',
         telefone: cliente.telefone || '',
         email: cliente.email || '',
-        observacoes: cliente.observacoes || '',
+        foto_url: cliente.foto_url || '',
         ativo: cliente.ativo
       });
+      
+      // Limpar preview se estiver editando (usa foto_url do banco)
+      setSelectedImageFile(null);
+      setPreviewUrl('');
     } catch (error) {
       console.error('Erro ao carregar cliente:', error);
       toast({
@@ -105,7 +113,7 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
 
   const buscarEnderecoPorCep = async (cep: string) => {
     const cepLimpo = cep.replace(/\D/g, '');
-    
+
     if (cepLimpo.length !== 8) {
       return;
     }
@@ -149,7 +157,7 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
 
   const handleCepChange = (cep: string) => {
     setFormData(prev => ({ ...prev, cep }));
-    
+
     // Formatar CEP
     const cepFormatado = cep.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2');
     if (cepFormatado !== cep) {
@@ -165,35 +173,55 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       setLoading(true);
+
+      // Fazer upload da imagem se houver arquivo selecionado
+      let finalFormData = { ...formData };
       
+      if (selectedImageFile) {
+        setImageUploading(true);
+        try {
+          const imageUrl = await cloudinaryService.uploadImage(selectedImageFile);
+          finalFormData.foto_url = imageUrl;
+          
+          toast({
+            title: "Upload concluído",
+            description: "Imagem carregada com sucesso.",
+          });
+        } catch (uploadError) {
+          throw new Error("Erro no upload da imagem. Tente novamente.");
+        } finally {
+          setImageUploading(false);
+        }
+      }
+
       if (clienteId) {
-        await clientesService.atualizar(clienteId, formData);
+        await clientesService.atualizar(clienteId, finalFormData);
         toast({
           title: "Sucesso",
           description: "Cliente atualizado com sucesso.",
         });
       } else {
-        await clientesService.criar(formData);
+        await clientesService.criar(finalFormData);
         toast({
           title: "Sucesso",
           description: "Cliente criado com sucesso.",
         });
       }
-      
+
       onSuccess?.();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar cliente:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível salvar o cliente. Verifique os dados e tente novamente.",
+        description: error instanceof Error ? error.message : "Não foi possível salvar o cliente. Verifique os dados e tente novamente.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
+      setImageUploading(false);
     }
   };
 
@@ -202,6 +230,58 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione apenas arquivos de imagem.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar tamanho (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "Por favor, selecione uma imagem com até 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Salvar arquivo e criar preview
+    setSelectedImageFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    toast({
+      title: "Arquivo selecionado",
+      description: "Clique em 'Salvar Cliente' para fazer o upload.",
+    });
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setPreviewUrl('');
+    setFormData(prev => ({
+      ...prev,
+      foto_url: ''
+    }));
+    
+    // Limpar input de arquivo
+    const fileInput = document.getElementById('foto-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
+  const handleChangeImage = () => {
+    document.getElementById('foto-upload')?.click();
   };
 
   return (
@@ -235,261 +315,338 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
       ) : (
         <form onSubmit={handleSubmit}>
           <Card className="tech-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-blue-500/20">
-                {formData.tipo_pessoa === 'PJ' ? (
-                  <Building2 className="h-5 w-5 text-blue-400" />
-                ) : (
-                  <User className="h-5 w-5 text-blue-400" />
-                )}
-              </div>
-              Informações do Cliente
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Tipo de Pessoa */}
-            <div className="space-y-2">
-              <Label htmlFor="tipo_pessoa">Tipo de Pessoa</Label>
-              <Select
-                value={formData.tipo_pessoa}
-                onValueChange={(value) => handleInputChange('tipo_pessoa', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PF">Pessoa Física</SelectItem>
-                  <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-500/20">
+                  {formData.tipo_pessoa === 'PJ' ? (
+                    <Building2 className="h-5 w-5 text-blue-400" />
+                  ) : (
+                    <User className="h-5 w-5 text-blue-400" />
+                  )}
+                </div>
+                Informações do Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Upload de Foto Centralizado */}
+              <div className="flex justify-center mb-6">
+                <div className="space-y-3 text-center">
+                  <Label className="text-base font-medium">Foto do Cliente</Label>
+                  <div className="flex flex-col items-center gap-3">
+                    {/* Preview da imagem */}
+                    <div className="relative">
+                      {(previewUrl || formData.foto_url) ? (
+                        <div className="relative w-30 h-30 rounded-2xl overflow-hidden border-4 border-border/50 shadow-lg">
+                          <img
+                            src={previewUrl || cloudinaryService.getOptimizedImageUrl(formData.foto_url, 96, 96)}
+                            alt="Preview do cliente"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 rounded-full border-2 border-dashed border-border/50 flex items-center justify-center bg-muted/30">
+                          <Camera className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
 
-            {/* Campos condicionais baseados no tipo */}
-            {formData.tipo_pessoa === 'PJ' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome_empresa">Nome da Empresa *</Label>
-                  <Input
-                    id="nome_empresa"
-                    value={formData.nome_empresa}
-                    onChange={(e) => handleInputChange('nome_empresa', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="razao_social">Razão Social</Label>
-                  <Input
-                    id="razao_social"
-                    value={formData.razao_social}
-                    onChange={(e) => handleInputChange('razao_social', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cnpj">CNPJ *</Label>
-                  <Input
-                    id="cnpj"
-                    value={formData.cnpj}
-                    onChange={(e) => handleInputChange('cnpj', e.target.value)}
-                    placeholder="00.000.000/0000-00"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="representante_legal">Representante Legal</Label>
-                  <Input
-                    id="representante_legal"
-                    value={formData.representante_legal}
-                    onChange={(e) => handleInputChange('representante_legal', e.target.value)}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome_completo">Nome Completo *</Label>
-                  <Input
-                    id="nome_completo"
-                    value={formData.nome_completo}
-                    onChange={(e) => handleInputChange('nome_completo', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cpf">CPF *</Label>
-                  <Input
-                    id="cpf"
-                    value={formData.cpf}
-                    onChange={(e) => handleInputChange('cpf', e.target.value)}
-                    placeholder="000.000.000-00"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Endereço */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <MapPin className="h-4 w-4 text-green-400" />
-                </div>
-                <h3 className="text-lg font-medium">Endereço</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cep">CEP</Label>
-                  <div className="relative">
-                    <Input
-                      id="cep"
-                      value={formData.cep}
-                      onChange={(e) => handleCepChange(e.target.value)}
-                      placeholder="00000-000"
-                      maxLength={9}
-                    />
-                    {cepLoading && (
-                      <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    )}
+                    {/* Botões de controle */}
+                    <div className="flex gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="foto-upload"
+                        disabled={imageUploading}
+                      />
+                      
+                      {!previewUrl && !formData.foto_url ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => document.getElementById('foto-upload')?.click()}
+                          disabled={imageUploading}
+                        >
+                          <Upload className="h-4 w-4" />
+                          Escolher Foto
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={handleChangeImage}
+                            disabled={imageUploading}
+                          >
+                            <Upload className="h-4 w-4" />
+                            Alterar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={handleRemoveImage}
+                            disabled={imageUploading}
+                          >
+                            <X className="h-4 w-4" />
+                            Remover
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="endereco">Endereço</Label>
-                  <Input
-                    id="endereco"
-                    value={formData.endereco}
-                    onChange={(e) => handleInputChange('endereco', e.target.value)}
-                  />
-                </div>
+              </div>
+
+              {/* Tipo de Pessoa e Nome da Empresa */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="numero">Número</Label>
-                  <Input
-                    id="numero"
-                    value={formData.numero}
-                    onChange={(e) => handleInputChange('numero', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cidade">Cidade</Label>
-                  <Input
-                    id="cidade"
-                    value={formData.cidade}
-                    onChange={(e) => handleInputChange('cidade', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="uf">Estado</Label>
+                  <Label htmlFor="tipo_pessoa">Tipo de Pessoa</Label>
                   <Select
-                    value={formData.uf}
-                    onValueChange={(value) => handleInputChange('uf', value)}
+                    value={formData.tipo_pessoa}
+                    onValueChange={(value) => handleInputChange('tipo_pessoa', value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="AC">AC</SelectItem>
-                      <SelectItem value="AL">AL</SelectItem>
-                      <SelectItem value="AP">AP</SelectItem>
-                      <SelectItem value="AM">AM</SelectItem>
-                      <SelectItem value="BA">BA</SelectItem>
-                      <SelectItem value="CE">CE</SelectItem>
-                      <SelectItem value="DF">DF</SelectItem>
-                      <SelectItem value="ES">ES</SelectItem>
-                      <SelectItem value="GO">GO</SelectItem>
-                      <SelectItem value="MA">MA</SelectItem>
-                      <SelectItem value="MT">MT</SelectItem>
-                      <SelectItem value="MS">MS</SelectItem>
-                      <SelectItem value="MG">MG</SelectItem>
-                      <SelectItem value="PA">PA</SelectItem>
-                      <SelectItem value="PB">PB</SelectItem>
-                      <SelectItem value="PR">PR</SelectItem>
-                      <SelectItem value="PE">PE</SelectItem>
-                      <SelectItem value="PI">PI</SelectItem>
-                      <SelectItem value="RJ">RJ</SelectItem>
-                      <SelectItem value="RN">RN</SelectItem>
-                      <SelectItem value="RS">RS</SelectItem>
-                      <SelectItem value="RO">RO</SelectItem>
-                      <SelectItem value="RR">RR</SelectItem>
-                      <SelectItem value="SC">SC</SelectItem>
-                      <SelectItem value="SP">SP</SelectItem>
-                      <SelectItem value="SE">SE</SelectItem>
-                      <SelectItem value="TO">TO</SelectItem>
+                      <SelectItem value="PF">Pessoa Física</SelectItem>
+                      <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            </div>
-
-            {/* Contato */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <Phone className="h-4 w-4 text-purple-400" />
-                </div>
-                <h3 className="text-lg font-medium">Contato</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone *</Label>
-                  <Input
-                    id="telefone"
-                    value={formData.telefone}
-                    onChange={(e) => handleInputChange('telefone', e.target.value)}
-                    placeholder="(00) 00000-0000"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Observações */}
-            <div className="space-y-2">
-              <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes}
-                onChange={(e) => handleInputChange('observacoes', e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            {/* Status */}
-            <div className="flex items-center space-x-2 p-4 border border-border/50 rounded-lg bg-muted/30">
-              <Switch
-                id="ativo"
-                checked={formData.ativo}
-                onCheckedChange={(checked) => handleInputChange('ativo', checked)}
-              />
-              <Label htmlFor="ativo" className="font-medium">Cliente ativo</Label>
-            </div>
-
-            {/* Botões */}
-            <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
+                
+                {/* Campo Nome da Empresa aparece apenas para PJ */}
+                {formData.tipo_pessoa === 'PJ' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="nome_empresa">Nome da Empresa (Fantasia) *</Label>
+                    <Input
+                      id="nome_empresa"
+                      value={formData.nome_empresa}
+                      onChange={(e) => handleInputChange('nome_empresa', e.target.value)}
+                      required
+                    />
+                  </div>
                 )}
-                {loading ? 'Salvando...' : (clienteId ? 'Atualizar Cliente' : 'Salvar Cliente')}
-              </Button>
-            </div>
-          </CardContent>
-                    </Card>
-          </form>
-        )}
-      </div>
-    );
-  }
+              </div>
+
+              {/* Campos condicionais baseados no tipo */}
+              {formData.tipo_pessoa === 'PJ' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="razao_social">Razão Social</Label>
+                    <Input
+                      id="razao_social"
+                      value={formData.razao_social}
+                      onChange={(e) => handleInputChange('razao_social', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cnpj">CNPJ *</Label>
+                    <Input
+                      id="cnpj"
+                      value={formData.cnpj}
+                      onChange={(e) => handleInputChange('cnpj', e.target.value)}
+                      placeholder="00.000.000/0000-00"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="representante_legal">Representante Legal</Label>
+                    <Input
+                      id="representante_legal"
+                      value={formData.representante_legal}
+                      onChange={(e) => handleInputChange('representante_legal', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF do Representante</Label>
+                    <Input
+                      id="cpf"
+                      value={formData.cpf}
+                      onChange={(e) => handleInputChange('cpf', e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nome_completo">Nome Completo *</Label>
+                    <Input
+                      id="nome_completo"
+                      value={formData.nome_completo}
+                      onChange={(e) => handleInputChange('nome_completo', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF *</Label>
+                    <Input
+                      id="cpf"
+                      value={formData.cpf}
+                      onChange={(e) => handleInputChange('cpf', e.target.value)}
+                      placeholder="000.000.000-00"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Endereço */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <MapPin className="h-4 w-4 text-green-400" />
+                  </div>
+                  <h3 className="text-lg font-medium">Endereço</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cep">CEP</Label>
+                    <div className="relative">
+                      <Input
+                        id="cep"
+                        value={formData.cep}
+                        onChange={(e) => handleCepChange(e.target.value)}
+                        placeholder="00000-000"
+                        maxLength={9}
+                      />
+                      {cepLoading && (
+                        <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="endereco">Endereço</Label>
+                    <Input
+                      id="endereco"
+                      value={formData.endereco}
+                      onChange={(e) => handleInputChange('endereco', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numero">Número</Label>
+                    <Input
+                      id="numero"
+                      value={formData.numero}
+                      onChange={(e) => handleInputChange('numero', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cidade">Cidade</Label>
+                    <Input
+                      id="cidade"
+                      value={formData.cidade}
+                      onChange={(e) => handleInputChange('cidade', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="uf">Estado</Label>
+                    <Select
+                      value={formData.uf}
+                      onValueChange={(value) => handleInputChange('uf', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AC">AC</SelectItem>
+                        <SelectItem value="AL">AL</SelectItem>
+                        <SelectItem value="AP">AP</SelectItem>
+                        <SelectItem value="AM">AM</SelectItem>
+                        <SelectItem value="BA">BA</SelectItem>
+                        <SelectItem value="CE">CE</SelectItem>
+                        <SelectItem value="DF">DF</SelectItem>
+                        <SelectItem value="ES">ES</SelectItem>
+                        <SelectItem value="GO">GO</SelectItem>
+                        <SelectItem value="MA">MA</SelectItem>
+                        <SelectItem value="MT">MT</SelectItem>
+                        <SelectItem value="MS">MS</SelectItem>
+                        <SelectItem value="MG">MG</SelectItem>
+                        <SelectItem value="PA">PA</SelectItem>
+                        <SelectItem value="PB">PB</SelectItem>
+                        <SelectItem value="PR">PR</SelectItem>
+                        <SelectItem value="PE">PE</SelectItem>
+                        <SelectItem value="PI">PI</SelectItem>
+                        <SelectItem value="RJ">RJ</SelectItem>
+                        <SelectItem value="RN">RN</SelectItem>
+                        <SelectItem value="RS">RS</SelectItem>
+                        <SelectItem value="RO">RO</SelectItem>
+                        <SelectItem value="RR">RR</SelectItem>
+                        <SelectItem value="SC">SC</SelectItem>
+                        <SelectItem value="SP">SP</SelectItem>
+                        <SelectItem value="SE">SE</SelectItem>
+                        <SelectItem value="TO">TO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contato */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-purple-500/20">
+                    <Phone className="h-4 w-4 text-purple-400" />
+                  </div>
+                  <h3 className="text-lg font-medium">Contato</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input
+                      id="telefone"
+                      value={formData.telefone}
+                      onChange={(e) => handleInputChange('telefone', e.target.value)}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center space-x-2 p-4 border border-border/50 rounded-lg bg-muted/30">
+                <Switch
+                  id="ativo"
+                  checked={formData.ativo}
+                  onCheckedChange={(checked) => handleInputChange('ativo', checked)}
+                />
+                <Label htmlFor="ativo" className="font-medium">Cliente ativo</Label>
+              </div>
+
+              {/* Botões */}
+              <div className="flex justify-end gap-4 pt-4">
+                <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {loading ? 'Salvando...' : (clienteId ? 'Atualizar Cliente' : 'Salvar Cliente')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      )}
+    </div>
+  );
+}

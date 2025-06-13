@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/scopes/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Badge } from '@/components/scopes/ui/badge';
+import { Progress } from '@/components/scopes/ui/progress';
 import { 
   Users, 
   FolderOpen, 
@@ -46,7 +46,15 @@ export default function Dashboard() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [clientProjectsView, setClientProjectsView] = useState<{clienteId: number, clienteName: string} | null>(null);
   const router = useRouter();
+
+  // Função para limpar visualização de projetos ao mudar de página
+  const handlePageChange = (page: string) => {
+    setActivePage(page);
+    setClientProjectsView(null);
+    setShowForm(false);
+  };
 
   // Mock data for dashboard
   const stats = {
@@ -113,9 +121,31 @@ export default function Dashboard() {
       }
     }
 
+    // Se estamos visualizando projetos de um cliente específico
+    if (clientProjectsView) {
+      return (
+        <ProjectList 
+          onNewProject={() => setShowForm(true)} 
+          clienteId={clientProjectsView.clienteId}
+          clienteName={clientProjectsView.clienteName}
+          onBack={() => {
+            setClientProjectsView(null);
+            setActivePage('clients');
+          }}
+        />
+      );
+    }
+
     switch (activePage) {
       case 'clients':
-        return <ClientList />;
+        return (
+          <ClientList 
+            onViewProjects={(clienteId, clienteName) => {
+              setClientProjectsView({ clienteId, clienteName });
+              setActivePage('projects');
+            }}
+          />
+        );
       case 'projects':
         return <ProjectList onNewProject={() => setShowForm(true)} />;
       case 'budgets':
@@ -350,10 +380,7 @@ export default function Dashboard() {
     <div className="flex h-screen">
       <Sidebar 
         activePage={activePage} 
-        onPageChange={(page) => {
-          setActivePage(page);
-          setShowForm(false);
-        }}
+        onPageChange={handlePageChange}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />

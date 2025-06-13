@@ -5,7 +5,6 @@ class ApiClient {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-    console.log('🌐 API Base URL:', baseURL);
   }
 
   private async request<T>(
@@ -13,7 +12,6 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<{ data: T; pagination?: any }> {
     const url = `${this.baseURL}${endpoint}`;
-    console.log('🚀 API Request:', url);
     
     const config: RequestInit = {
       headers: {
@@ -25,19 +23,15 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      console.log('📡 API Response status:', response.status);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ API Error:', errorData);
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('✅ API Success:', result);
       return result;
     } catch (error) {
-      console.error('💥 API request failed:', error);
       throw error;
     }
   }
@@ -90,6 +84,7 @@ export interface Cliente {
   telefone?: string;
   email?: string;
   observacoes?: string;
+  foto_url?: string;
   ativo: boolean;
   created_at: string;
   updated_at: string;

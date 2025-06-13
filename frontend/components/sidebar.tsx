@@ -1,8 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/scopes/ui/button';
+import { ScrollArea } from '@/components/scopes/ui/scroll-area';
 import {
   LayoutDashboard,
   Users,

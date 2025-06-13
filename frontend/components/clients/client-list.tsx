@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent, CardHeader } from '@/components/scopes/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Input } from '@/components/scopes/ui/input';
+import { Badge } from '@/components/scopes/ui/badge';
+import { Switch } from '@/components/scopes/ui/switch';
+import { Checkbox } from '@/components/scopes/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -14,21 +14,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from '@/components/scopes/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/scopes/ui/dropdown-menu';
 import { Search, Plus, Building2, User, Phone, Mail, MapPin, Edit, Trash2, Loader2, FolderPlus, ChevronDown, CheckSquare, Square } from 'lucide-react';
 import { clientesService } from '@/lib/services/clientes';
+import { cloudinaryService } from '@/lib/services/cloudinary';
 import { Cliente } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ClientForm } from './client-form';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/scopes/ui/dialog';
 import { ProjectForm } from '../projects/project-form';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/scopes/ui/select';
 
 interface ClientListProps {
   onNewClient?: () => void;
@@ -51,7 +52,7 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
   const [editingClientIdState, setEditingClientIdState] = useState<number | undefined>();
   const [projectFormOpen, setProjectFormOpen] = useState(false);
   const [projectClientId, setProjectClientId] = useState<number | undefined>();
-  const [statusFilter, setStatusFilter] = useState<'ativos' | 'inativos' | 'todos'>('ativos');
+  const [statusFilter, setStatusFilter] = useState<'ativos' | 'inativos' | 'todos'>('todos');
 
   const loadClients = async () => {
     try {
@@ -85,10 +86,12 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setCurrentPage(1);
-      loadClients();
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadClients();
+      }
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -177,15 +180,23 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
       return;
     }
 
-    const actionText = action === 'ativar' ? 'ativar' : action === 'desativar' ? 'desativar' : 'desativar';
-    
-    if (!confirm(`Tem certeza que deseja ${actionText} ${selectedClients.length} cliente(s) selecionado(s)?`)) {
+    const actionText = action === 'ativar' ? 'ativar' :
+      action === 'desativar' ? 'desativar' :
+        'excluir permanentemente';
+
+    const confirmMessage = action === 'excluir'
+      ? `Tem certeza que deseja excluir permanentemente ${selectedClients.length} cliente(s) selecionado(s)? Esta ação não pode ser desfeita!`
+      : `Tem certeza que deseja ${actionText} ${selectedClients.length} cliente(s) selecionado(s)?`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     try {
       const promises = selectedClients.map(async (clienteId) => {
-        if (action === 'excluir' || action === 'desativar') {
+        if (action === 'excluir') {
+          return clientesService.desativar(clienteId, true); // true para exclusão permanente
+        } else if (action === 'desativar') {
           return clientesService.desativar(clienteId);
         } else {
           // Ativar cliente
@@ -214,9 +225,13 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
 
       await Promise.all(promises);
 
+      const successMessage = action === 'ativar' ? 'ativado(s)' :
+        action === 'desativar' ? 'desativado(s)' :
+          'excluído(s)';
+
       toast({
         title: "Sucesso",
-        description: `${selectedClients.length} cliente(s) ${actionText === 'ativar' ? 'ativado(s)' : 'desativado(s)'} com sucesso.`,
+        description: `${selectedClients.length} cliente(s) ${successMessage} com sucesso.`,
       });
 
       setSelectedClients([]);
@@ -244,10 +259,10 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
 
   const handleSelectClient = (clienteId: number) => {
     setSelectedClients(prev => {
-      const newSelection = prev.includes(clienteId) 
+      const newSelection = prev.includes(clienteId)
         ? prev.filter(id => id !== clienteId)
         : [...prev, clienteId];
-      
+
       setIsAllSelected(newSelection.length === filteredClients.length);
       return newSelection;
     });
@@ -258,24 +273,27 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
     if (count === 1) return '1 projeto';
     return `${count} projetos`;
   };
+  const getClientCount = (count: number) => {
+    if (count === 0) return '0 clientes';
+    if (count === 1) return '1 cliente';
+    return `${count} clientes`;
+  };
 
   const handleEditClient = (clientId: number) => {
-    if (onEditClient) {
-      onEditClient(clientId);
-    } else {
-      setEditingClientIdState(clientId);
-      setClientFormOpen(true);
-    }
+    setEditingClientIdState(clientId);
+    setClientFormOpen(true);
+  };
+
+  const handleNewClient = () => {
+    setEditingClientIdState(undefined); // Limpar ID para indicar novo cliente
+    setClientFormOpen(true);
   };
 
   const handleNewProject = (clientId: number, clientName: string) => {
-    if (onNewProject) {
-      onNewProject(clientId, clientName);
-    } else {
-      setProjectClientId(clientId);
-      setProjectFormOpen(true);
-    }
+    setProjectClientId(clientId);
+    setProjectFormOpen(true);
   };
+
 
   const handleViewProjects = (clientId: number, clientName: string) => {
     if (onViewProjects) {
@@ -304,14 +322,13 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
                 <p className="text-muted-foreground">Gerencie seus clientes e suas informações</p>
               </div>
             </div>
-            <Button 
-              onClick={() => {
-                if (onNewClient) {
-                  onNewClient();
-                } else {
-                  console.log('Novo cliente');
-                }
-              }} 
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="status-info w-52 text-center justify-center text-lg">
+                Total: {getClientCount(filteredClients.length)}
+              </Badge>
+            </div>
+            <Button
+              onClick={handleNewClient}
               className="gap-2 bg-primary hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
@@ -323,8 +340,8 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
 
       <Card className="tech-card">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-4 justify-between">
+            <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 placeholder="Buscar clientes..."
@@ -332,11 +349,6 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="status-info">
-                Total: {filteredClients.length} clientes
-              </Badge>
             </div>
             {selectedClients.length > 0 && (
               <div className="flex items-center gap-2">
@@ -367,16 +379,18 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
                 </DropdownMenu>
               </div>
             )}
-            <Select value={statusFilter} onValueChange={(v)=>setStatusFilter(v as any)}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ativos">Ativos</SelectItem>
-                <SelectItem value="inativos">Inativos</SelectItem>
-                <SelectItem value="todos">Todos</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex justify-end w-36">
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="ativos">Ativos</SelectItem>
+                  <SelectItem value="inativos">Inativos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -421,8 +435,14 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                          {client.tipo_pessoa === 'PJ' ? (
+                        <div className="flex h-10 w-10 items-center justify-center bg-blue-100 overflow-hidden rounded-lg">
+                          {client.foto_url ? (
+                            <img
+                              src={cloudinaryService.getOptimizedImageUrl(client.foto_url, 40, 40)}
+                              alt={client.nome_empresa || client.nome_completo || 'Cliente'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : client.tipo_pessoa === 'PJ' ? (
                             <Building2 className="h-5 w-5 text-blue-600" />
                           ) : (
                             <User className="h-5 w-5 text-blue-600" />
@@ -462,9 +482,9 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className="status-pending cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors" 
+                      <Badge
+                        variant="outline"
+                        className="status-pending cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
                         onClick={() => handleViewProjects(client.id, client.nome_empresa || client.nome_completo || '')}
                         title="Clique para ver projetos"
                       >
@@ -484,25 +504,25 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
                       </div>
                     </TableCell>
                     <TableCell className="flex items-center gap-2">
-                      <Badge 
-                        variant="outline" 
-                        className="bg-green-500 text-white cursor-pointer hover:bg-green-600" 
+                      <Badge
+                        variant="outline"
+                        className="bg-green-500 text-white cursor-pointer hover:bg-green-600"
                         title="Novo Projeto"
                         onClick={() => handleNewProject(client.id, client.nome_empresa || client.nome_completo || '')}
                       >
                         <FolderPlus className="h-4 w-4" />
                       </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" 
+                      <Badge
+                        variant="outline"
+                        className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600"
                         title="Editar"
                         onClick={() => handleEditClient(client.id)}
                       >
                         <Edit className="h-4 w-4" />
                       </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className="bg-red-500 text-white cursor-pointer hover:bg-red-600" 
+                      <Badge
+                        variant="outline"
+                        className="bg-red-500 text-white cursor-pointer hover:bg-red-600"
                         title="Excluir Cliente"
                         onClick={() => handleExcluirCliente(client.id)}
                       >
@@ -519,7 +539,7 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
 
       {/* Modal para formulário de cliente */}
       <Dialog open={clientFormOpen} onOpenChange={setClientFormOpen}>
-        <DialogContent className="max-w-3xl p-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-6">
           <ClientForm
             onClose={() => setClientFormOpen(false)}
             clienteId={editingClientIdState}
@@ -531,9 +551,10 @@ export function ClientList({ onNewClient, onEditClient, onViewProjects, onNewPro
         </DialogContent>
       </Dialog>
 
+
       {/* Modal para formulário de projeto */}
       <Dialog open={projectFormOpen} onOpenChange={setProjectFormOpen}>
-        <DialogContent className="max-w-3xl p-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-6">
           <ProjectForm
             onClose={() => setProjectFormOpen(false)}
             onSuccess={() => setProjectFormOpen(false)}

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/scopes/ui/button';
 import { Calendar, Plus } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/scopes/ui/card';
 
 interface ScheduleListProps {
   onNewSchedule: () => void;

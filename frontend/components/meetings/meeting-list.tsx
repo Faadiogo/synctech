@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/scopes/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Input } from '@/components/scopes/ui/input';
+import { Badge } from '@/components/scopes/ui/badge';
 import {
   Table,
   TableBody,
@@ -12,26 +12,37 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from '@/components/scopes/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { 
-  Search, 
-  Plus, 
-  MoreHorizontal, 
-  Calendar, 
+} from '@/components/scopes/ui/dropdown-menu';
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  Calendar,
   Clock,
   Video,
   MapPin,
   Phone,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  ChevronDown,
+  CheckSquare,
+  Square
 } from 'lucide-react';
+import { Checkbox } from '@/components/scopes/ui/checkbox';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/scopes/ui/select';
 
 interface Meeting {
   id: number;
@@ -47,12 +58,16 @@ interface Meeting {
 }
 
 interface MeetingListProps {
-  onNewMeeting: () => void;
+  onNewMeeting?: () => void;
+  refreshTrigger?: number;
 }
 
-export function MeetingList({ onNewMeeting }: MeetingListProps) {
+export function MeetingList({ onNewMeeting, refreshTrigger }: MeetingListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [selectedMeetings, setSelectedMeetings] = useState<number[]>([]);
+  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'agendada' | 'realizada' | 'cancelada'>('todos');
+
   // Mock data
   const meetings: Meeting[] = [
     {
@@ -122,12 +137,20 @@ export function MeetingList({ onNewMeeting }: MeetingListProps) {
 
   const filteredMeetings = meetings.filter(meeting => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       meeting.titulo.toLowerCase().includes(searchLower) ||
       meeting.projeto_nome.toLowerCase().includes(searchLower) ||
       meeting.cliente_nome.toLowerCase().includes(searchLower)
     );
+    const matchesStatus = statusFilter === 'todos' ? true : meeting.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
+
+  const getMeetingCount = (c: number) => c === 0 ? '0 reuniões' : c === 1 ? '1 reunião' : `${c} reuniões`;
+
+  const handleSelectAll = () => { if (isAllSelected) { setSelectedMeetings([]); setIsAllSelected(false); } else { setSelectedMeetings(filteredMeetings.map(m => m.id)); setIsAllSelected(true); } };
+  const handleSelectMeeting = (id: number) => { setSelectedMeetings(p => { const n = p.includes(id) ? p.filter(i => i !== id) : [...p, id]; setIsAllSelected(n.length === filteredMeetings.length); return n; }); };
+  const handleBulkAction = (action: 'realizar' | 'cancelar' | 'excluir') => { if (selectedMeetings.length === 0) return; console.log('bulk', action, selectedMeetings); setSelectedMeetings([]); setIsAllSelected(false); };
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -145,18 +168,25 @@ export function MeetingList({ onNewMeeting }: MeetingListProps) {
                 <p className="text-muted-foreground">Gerencie reuniões e compromissos com clientes</p>
               </div>
             </div>
-            <Button onClick={onNewMeeting} className="gap-2 bg-primary hover:bg-primary/90">
-              <Plus className="h-4 w-4" />
-              Nova Reunião
-            </Button>
+            <div className="flex items-center gap-4 justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="status-info w-52 text-center justify-center text-lg">
+                  Total: {getMeetingCount(filteredMeetings.length)}
+                </Badge>
+              </div>
+              <Button onClick={onNewMeeting} className="gap-2 bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4" />
+                Nova Reunião
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <Card className="tech-card">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-4 justify-between">
+            <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 placeholder="Buscar reuniões..."
@@ -165,10 +195,45 @@ export function MeetingList({ onNewMeeting }: MeetingListProps) {
                 className="pl-10"
               />
             </div>
+            {selectedMeetings.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                  {selectedMeetings.length} selecionada(s)
+                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      Ações em Lote
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleBulkAction('realizar')}>
+                      <CheckSquare className="mr-2 h-4 w-4 text-green-600" />
+                      Marcar como realizada
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction('cancelar')}>
+                      <Square className="mr-2 h-4 w-4 text-orange-600" />
+                      Cancelar Selecionadas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction('excluir')}>
+                      <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                      Excluir Selecionadas
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="status-info">
-                {filteredMeetings.length} reunião(ões) encontrada(s)
-              </Badge>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="agendada">Agendada</SelectItem>
+                  <SelectItem value="realizada">Realizada</SelectItem>
+                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -176,17 +241,19 @@ export function MeetingList({ onNewMeeting }: MeetingListProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Selecionar todos" /></TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Projeto/Cliente</TableHead>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMeetings.map((meeting) => (
                 <TableRow key={meeting.id} className="hover:bg-muted/50 transition-colors">
+                  <TableCell><Checkbox checked={selectedMeetings.includes(meeting.id)} onCheckedChange={() => handleSelectMeeting(meeting.id)} aria-label={`Selecionar reunião ${meeting.id}`} /></TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-blue-500/20">
@@ -225,41 +292,20 @@ export function MeetingList({ onNewMeeting }: MeetingListProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className={getStatusColor(meeting.status)}
                     >
                       {getStatusText(meeting.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="hover:bg-muted">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver detalhes
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        {meeting.link_reuniao && (
-                          <DropdownMenuItem>
-                            <Video className="mr-2 h-4 w-4" />
-                            Entrar na reunião
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem className="text-red-600">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Cancelar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2 justify-center">
+                      <Badge variant="outline" className="bg-blue-500 text-white cursor-pointer hover:bg-blue-600" title="Detalhes"><Eye className="h-4 w-4" /></Badge>
+                      <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar"><Edit className="h-4 w-4" /></Badge>
+                      {meeting.link_reuniao && <Badge variant="outline" className="bg-purple-500 text-white cursor-pointer hover:bg-purple-600" title="Entrar"><Video className="h-4 w-4" /></Badge>}
+                      <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Cancelar"><Trash2 className="h-4 w-4" /></Badge>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

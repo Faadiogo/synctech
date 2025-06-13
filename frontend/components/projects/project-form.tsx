@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Input } from '@/components/scopes/ui/input';
+import { Label } from '@/components/scopes/ui/label';
+import { Textarea } from '@/components/scopes/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
+import { Badge } from '@/components/scopes/ui/badge';
 import { ArrowLeft, Save, X, FolderOpen, User, Calendar, DollarSign, Code, Loader2 } from 'lucide-react';
-import { projetosService } from '@/lib/services/projetos';
+import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
 import { clientesService } from '@/lib/services/clientes';
 import { Projeto, Cliente } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -70,15 +70,15 @@ export function ProjectForm({ onClose, projetoId, onSuccess, clienteId }: Projec
     }
   }, [projetoId]);
 
-  // Pré-selecionar cliente se clienteId for fornecido
+  // Pré-selecionar cliente quando a lista de clientes estiver carregada
   useEffect(() => {
-    if (clienteId && !projetoId) {
+    if (clienteId && !projetoId && !clientesLoading) {
       setFormData(prev => ({
         ...prev,
         cliente_id: clienteId.toString()
       }));
     }
-  }, [clienteId, projetoId]);
+  }, [clienteId, projetoId, clientesLoading]);
 
   const loadClientes = async () => {
     try {
@@ -116,7 +116,7 @@ export function ProjectForm({ onClose, projetoId, onSuccess, clienteId }: Projec
   const loadProjeto = async () => {
     try {
       setInitialLoading(true);
-      const response = await projetosService.buscarPorId(projetoId!);
+      const response = await projetosSupabaseService.buscarPorId(projetoId!);
       const projeto = response.data;
       setFormData({
         nome: projeto.nome,
@@ -175,13 +175,13 @@ export function ProjectForm({ onClose, projetoId, onSuccess, clienteId }: Projec
       };
       
       if (projetoId) {
-        await projetosService.atualizar(projetoId, projetoData);
+        await projetosSupabaseService.atualizar(projetoId, projetoData);
         toast({
           title: "Sucesso",
           description: "Projeto atualizado com sucesso.",
         });
       } else {
-        await projetosService.criar(projetoData);
+        await projetosSupabaseService.criar(projetoData);
         toast({
           title: "Sucesso",
           description: "Projeto criado com sucesso.",

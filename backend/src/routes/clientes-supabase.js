@@ -42,6 +42,7 @@ const clienteSchema = Joi.object({
   telefone: Joi.string().allow(''),
   email: Joi.string().email().allow(''),
   observacoes: Joi.string().allow(''),
+  foto_url: Joi.string().uri().allow(''),
   ativo: Joi.boolean().default(true)
 });
 
@@ -50,7 +51,12 @@ router.get('/', async (req, res) => {
   try {
     const { ativo, tipo_pessoa, busca, page = 1, limit = 10 } = req.query;
     
-    let query = supabase.from('clientes').select('*');
+    let query = supabase
+      .from('clientes')
+      .select(`
+        *,
+        projetos_count:projetos(count)
+      `);
     
     if (ativo !== undefined) {
       query = query.eq('ativo', ativo === 'true');
@@ -68,11 +74,17 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     query = query.range(offset, offset + parseInt(limit) - 1).order('created_at', { ascending: false });
     
-    const { data: clientes, error, count } = await query;
+    const { data: clientesRaw, error } = await query;
     
     if (error) {
       throw error;
     }
+
+    // Processar dados para extrair a contagem de projetos
+    const clientes = clientesRaw.map(cliente => ({
+      ...cliente,
+      projetos_count: cliente.projetos_count?.[0]?.count || 0
+    }));
     
     // Contar total para paginação
     let countQuery = supabase.from('clientes').select('*', { count: 'exact', head: true });
@@ -134,14 +146,21 @@ router.get('/:id', async (req, res) => {
 // POST /api/clientes-supabase - Criar novo cliente
 router.post('/', async (req, res) => {
   try {
+    console.log('🆕 Criando cliente - dados recebidos:', req.body);
+    console.log('🖼️ foto_url recebida:', req.body.foto_url);
+    
     const { error: validationError, value } = clienteSchema.validate(req.body);
     
     if (validationError) {
+      console.error('❌ Erro de validação:', validationError.details);
       return res.status(400).json({
         error: 'Dados inválidos',
         details: validationError.details.map(d => d.message)
       });
     }
+    
+    console.log('✅ Dados validados:', value);
+    console.log('🖼️ foto_url validada:', value.foto_url);
     
     const { data: cliente, error } = await supabase
       .from('clientes')
@@ -150,15 +169,18 @@ router.post('/', async (req, res) => {
       .single();
     
     if (error) {
+      console.error('❌ Erro do Supabase:', error);
       throw error;
     }
+    
+    console.log('✅ Cliente criado com sucesso:', cliente);
     
     res.status(201).json({
       message: 'Cliente criado com sucesso',
       data: cliente
     });
   } catch (error) {
-    console.error('Erro ao criar cliente:', error);
+    console.error('💥 Erro ao criar cliente:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -167,14 +189,21 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`✏️ Atualizando cliente ${id} - dados recebidos:`, req.body);
+    console.log('🖼️ foto_url recebida:', req.body.foto_url);
+    
     const { error: validationError, value } = clienteSchema.validate(req.body);
     
     if (validationError) {
+      console.error('❌ Erro de validação:', validationError.details);
       return res.status(400).json({
         error: 'Dados inválidos',
         details: validationError.details.map(d => d.message)
       });
     }
+    
+    console.log('✅ Dados validados:', value);
+    console.log('🖼️ foto_url validada:', value.foto_url);
     
     const { data: cliente, error } = await supabase
       .from('clientes')
@@ -185,17 +214,21 @@ router.put('/:id', async (req, res) => {
     
     if (error) {
       if (error.code === 'PGRST116') {
+        console.error('❌ Cliente não encontrado:', id);
         return res.status(404).json({ error: 'Cliente não encontrado' });
       }
+      console.error('❌ Erro do Supabase:', error);
       throw error;
     }
+    
+    console.log('✅ Cliente atualizado com sucesso:', cliente);
     
     res.json({ 
       message: 'Cliente atualizado com sucesso',
       data: cliente
     });
   } catch (error) {
-    console.error('Erro ao atualizar cliente:', error);
+    console.error('💥 Erro ao atualizar cliente:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/scopes/ui/button';
+import { Input } from '@/components/scopes/ui/input';
+import { Badge } from '@/components/scopes/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/scopes/ui/card';
 import {
   Table,
   TableBody,
@@ -10,13 +10,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from '@/components/scopes/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/scopes/ui/dropdown-menu';
+import { Checkbox } from '@/components/scopes/ui/checkbox';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/scopes/ui/select';
 import {
   FolderTree,
   Plus,
@@ -25,11 +33,15 @@ import {
   Edit,
   Trash2,
   Eye,
-  Calendar
+  Calendar,
+  ChevronDown,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 interface ScopeListProps {
-  onNewScope: () => void;
+  onNewScope?: () => void;
+  refreshTrigger?: number;
 }
 
 interface Scope {
@@ -44,8 +56,11 @@ interface Scope {
   ordem: number;
 }
 
-export function ScopeList({ onNewScope }: ScopeListProps) {
+export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedScopes, setSelectedScopes] = useState<number[]>([]);
+  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'planejado' | 'em_andamento' | 'concluido' | 'cancelado'>('todos');
 
   // Mock data
   const scopes: Scope[] = [
@@ -94,13 +109,47 @@ export function ScopeList({ onNewScope }: ScopeListProps) {
 
   const filteredScopes = scopes.filter(scope => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       scope.nome.toLowerCase().includes(searchLower) ||
       scope.projeto_nome.toLowerCase().includes(searchLower) ||
       scope.cliente_nome.toLowerCase().includes(searchLower) ||
       scope.tipo_escopo.toLowerCase().includes(searchLower)
     );
+    const matchesStatus = statusFilter === 'todos' ? true : scope.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
+
+  const getScopeCount = (count: number) => {
+    if (count === 0) return '0 escopos';
+    if (count === 1) return '1 escopo';
+    return `${count} escopos`;
+  };
+
+  // Seleção
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedScopes([]);
+      setIsAllSelected(false);
+    } else {
+      setSelectedScopes(filteredScopes.map(s => s.id));
+      setIsAllSelected(true);
+    }
+  };
+
+  const handleSelectScope = (id: number) => {
+    setSelectedScopes(prev => {
+      const newSel = prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id];
+      setIsAllSelected(newSel.length === filteredScopes.length);
+      return newSel;
+    });
+  };
+
+  const handleBulkAction = (action: 'concluir' | 'cancelar' | 'excluir') => {
+    if (selectedScopes.length === 0) return;
+    console.log('Bulk', action, selectedScopes);
+    setSelectedScopes([]);
+    setIsAllSelected(false);
+  };
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -115,8 +164,13 @@ export function ScopeList({ onNewScope }: ScopeListProps) {
               </div>
               <div>
                 <h2 className="text-3xl font-bold">Escopo Funcional</h2>
-                <p className="text-muted-foreground">Gerencie os escopos funcionais dos projetos, organizando funcionalidades e entregas.</p>
+                <p className="text-muted-foreground">Gerencie os escopos funcionais dos projetos.</p>
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="status-info w-52 text-center justify-center text-lg">
+                Total: {getScopeCount(filteredScopes.length)}
+              </Badge>
             </div>
             <Button onClick={onNewScope} className="gap-2 bg-primary hover:bg-primary/90">
               <Plus className="h-4 w-4" />
@@ -128,8 +182,8 @@ export function ScopeList({ onNewScope }: ScopeListProps) {
 
       <Card className="tech-card">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-4 justify-between">
+            <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 placeholder="Buscar escopos..."
@@ -138,10 +192,48 @@ export function ScopeList({ onNewScope }: ScopeListProps) {
                 className="pl-10"
               />
             </div>
+            {selectedScopes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                  {selectedScopes.length} selecionado(s)
+                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      Ações em Lote
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleBulkAction('concluir')}>
+                      <CheckSquare className="mr-2 h-4 w-4 text-green-600" />
+                      Concluir Selecionados
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction('cancelar')}>
+                      <Square className="mr-2 h-4 w-4 text-orange-600" />
+                      Cancelar Selecionados
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction('excluir')}>
+                      <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                      Excluir Selecionados
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="status-info">
-                Total: {filteredScopes.length} Escopos
-              </Badge>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="planejado">Planejado</SelectItem>
+                  <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                  <SelectItem value="concluido">Concluído</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -150,6 +242,13 @@ export function ScopeList({ onNewScope }: ScopeListProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead>Projeto/Cliente</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Prazo</TableHead>
@@ -159,6 +258,13 @@ export function ScopeList({ onNewScope }: ScopeListProps) {
               <TableBody>
                 {filteredScopes.map((scope) => (
                   <TableRow key={scope.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedScopes.includes(scope.id)}
+                        onCheckedChange={() => handleSelectScope(scope.id)}
+                        aria-label={`Selecionar escopo ${scope.nome}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">{scope.projeto_nome}</div>
