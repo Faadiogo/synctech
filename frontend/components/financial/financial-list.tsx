@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
@@ -37,7 +37,8 @@ import {
   CreditCard,
   Filter,
   X,
-  Eraser
+  Eraser,
+  Loader2
 } from 'lucide-react';
 import { Checkbox } from '@/components/scopes/ui/checkbox';
 import {
@@ -47,20 +48,8 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/scopes/ui/select';
-
-interface FinancialTransaction {
-  id: number;
-  contrato_numero: string;
-  cliente_nome: string;
-  tipo_movimento: 'entrada' | 'saida';
-  descricao: string;
-  valor: number;
-  forma_pagamento: string;
-  data_vencimento: string;
-  data_pagamento?: string;
-  status: string;
-  numero_parcela?: number;
-}
+import { financeiroSupabaseService, TransacaoFinanceira } from '@/lib/services/financeiro-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface FinancialListProps {
   onNewTransaction?: () => void;
@@ -81,43 +70,88 @@ export function FinancialList({ onNewTransaction, refreshTrigger }: FinancialLis
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
-  // Mock data
-  const transactions: FinancialTransaction[] = [
-    {
-      id: 1,
-      contrato_numero: 'CONT-2024-001',
-      cliente_nome: 'TechCorp Solutions',
-      tipo_movimento: 'entrada',
-      descricao: 'Parcela 1/4 - Sistema de Gestão',
-      valor: 20000,
-      forma_pagamento: 'pix',
-      data_vencimento: '2024-02-15',
-      data_pagamento: '2024-02-14',
-      status: 'pago',
-      numero_parcela: 1
-    },
-    {
-      id: 2,
-      contrato_numero: 'CONT-2024-001',
-      cliente_nome: 'TechCorp Solutions',
-      tipo_movimento: 'entrada',
-      descricao: 'Parcela 2/4 - Sistema de Gestão',
-      valor: 20000,
-      forma_pagamento: 'pix',
-      data_vencimento: '2024-03-15',
-      status: 'em_aberto',
-      numero_parcela: 2
+  const [transactions, setTransactions] = useState<TransacaoFinanceira[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { toast } = useToast();
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+      const response = await financeiroSupabaseService.listar({
+        status: statusFilter === 'todos' ? undefined : statusFilter,
+        tipo_movimento: typeFilter === 'todos' ? undefined : typeFilter,
+        busca: searchTerm || undefined,
+        data_inicio: startDate || undefined,
+        data_fim: endDate || undefined,
+        page: currentPage,
+        limit: 10
+      });
+      setTransactions(response.data);
+      if (response.pagination) {
+        setTotalPages(response.pagination.pages);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar transações financeiras:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as transações. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadTransactions();
+  }, [currentPage, refreshTrigger, statusFilter, typeFilter, startDate, endDate]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadTransactions();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset selection when transactions change
+  useEffect(() => {
+    setSelectedTransactions([]);
+    setIsAllSelected(false);
+  }, [transactions]);
+
+  const handleExcluirTransaction = async (id: number) => {
+    try {
+      await financeiroSupabaseService.excluir(id);
+      toast({
+        title: "Sucesso",
+        description: "Transação excluída com sucesso.",
+      });
+      loadTransactions();
+    } catch (error) {
+      console.error('Erro ao excluir transação:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a transação.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
       'em_aberto': 'status-pending',
       'pago': 'bg-green-100 text-green-800',
       'atrasado': 'bg-red-100 text-red-800',
-      'cancelado': 'bg-gray-100 text-gray-800'
+      'cancelado': 'bg-gray-100 text-gray-300'
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-300';
   };
 
   const getStatusText = (status: string) => {
@@ -141,7 +175,7 @@ export function FinancialList({ onNewTransaction, refreshTrigger }: FinancialLis
     return methods[method as keyof typeof methods] || method;
   };
 
-  const filterByPeriod = (transaction: FinancialTransaction) => {
+  const filterByPeriod = (transaction: TransacaoFinanceira) => {
     const transactionDate = new Date(transaction.data_vencimento);
     
     // Filtro por data inicial e final (prioritário)
@@ -489,115 +523,147 @@ export function FinancialList({ onNewTransaction, refreshTrigger }: FinancialLis
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Selecionar todos" />
-                </TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Cliente/Contrato</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTransactions.map((transaction) => (
-                <TableRow key={transaction.id} className="hover:bg-muted/50 transition-colors">
-                  <TableCell>
-                    <Checkbox checked={selectedTransactions.includes(transaction.id)} onCheckedChange={() => handleSelectTransaction(transaction.id)} aria-label={`Selecionar transação ${transaction.id}`} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${transaction.tipo_movimento === 'entrada' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                        {transaction.tipo_movimento === 'entrada' ? (
-                          <TrendingUp className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-red-600" />
-                        )}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Carregando transações...</span>
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhuma transação encontrada.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} aria-label="Selecionar todos" />
+                  </TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Cliente/Contrato</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.map((transaction) => (
+                  <TableRow key={transaction.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <Checkbox checked={selectedTransactions.includes(transaction.id)} onCheckedChange={() => handleSelectTransaction(transaction.id)} aria-label={`Selecionar transação ${transaction.id}`} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${transaction.tipo_movimento === 'entrada' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                          {transaction.tipo_movimento === 'entrada' ? (
+                            <TrendingUp className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4 text-red-600" />
+                          )}
+                        </div>
+                        <span className={transaction.tipo_movimento === 'entrada' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                          {transaction.tipo_movimento === 'entrada' ? 'Entrada' : 'Saída'}
+                        </span>
                       </div>
-                      <span className={transaction.tipo_movimento === 'entrada' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                        {transaction.tipo_movimento === 'entrada' ? 'Entrada' : 'Saída'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{transaction.descricao}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {getPaymentMethodText(transaction.forma_pagamento)}
-                        {transaction.numero_parcela && ` • Parcela ${transaction.numero_parcela}`}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{transaction.cliente_nome}</div>
-                      <div className="text-sm text-muted-foreground">{transaction.contrato_numero}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className={`font-medium ${transaction.tipo_movimento === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                      {transaction.tipo_movimento === 'entrada' ? '+' : '-'}R$ {transaction.valor.toLocaleString('pt-BR')}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {transaction.status === 'pago' && transaction.data_pagamento ? (
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <CheckCircle className="h-3 w-3" />
-                        <div>
-                          <div className="font-medium">Pago em</div>
-                          <div>{new Date(transaction.data_pagamento).toLocaleDateString('pt-BR')}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{transaction.descricao}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {getPaymentMethodText(transaction.forma_pagamento)}
+                          {transaction.numero_parcela && ` • Parcela ${transaction.numero_parcela}`}
                         </div>
                       </div>
-                    ) : (
-                      <div className={`flex items-center gap-2 text-sm ${
-                        transaction.status === 'atrasado' ? 'text-red-600' :
-                        transaction.status === 'em_aberto' ? 'text-gray-300' :
-                        'text-gray-400'
-                      }`}>
-                        <Calendar className={`h-3 w-3 ${
-                          transaction.status === 'atrasado' ? 'text-red-400' :
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          title={transaction.cliente_nome}
+                        >
+                          {transaction.cliente_foto ? (
+                            <img 
+                              src={transaction.cliente_foto} 
+                              alt={transaction.cliente_nome} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`text-xs font-semibold text-gray-300 ${transaction.cliente_foto ? 'hidden' : ''}`}>
+                            {(transaction.cliente_nome || 'CI')[0].toUpperCase()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-medium">{transaction.contrato_numero}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className={`font-medium ${transaction.tipo_movimento === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+                        {transaction.tipo_movimento === 'entrada' ? '+' : '-'}R$ {transaction.valor.toLocaleString('pt-BR')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {transaction.status === 'pago' && transaction.data_pagamento ? (
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle className="h-3 w-3" />
+                          <div>
+                            <div className="font-medium">Pago em</div>
+                            <div>{new Date(transaction.data_pagamento).toLocaleDateString('pt-BR')}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`flex items-center gap-2 text-sm ${
+                          transaction.status === 'atrasado' ? 'text-red-600' :
                           transaction.status === 'em_aberto' ? 'text-gray-300' :
                           'text-gray-400'
-                        }`} />
-                        <div>
-                          <div className="font-medium">Vence em</div>
-                          <div>{new Date(transaction.data_vencimento).toLocaleDateString('pt-BR')}</div>
+                        }`}>
+                          <Calendar className={`h-3 w-3 ${
+                            transaction.status === 'atrasado' ? 'text-red-400' :
+                            transaction.status === 'em_aberto' ? 'text-gray-300' :
+                            'text-gray-400'
+                          }`} />
+                          <div>
+                            <div className="font-medium">Vence em</div>
+                            <div>{new Date(transaction.data_vencimento).toLocaleDateString('pt-BR')}</div>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant="secondary" 
-                      className={getStatusColor(transaction.status)}
-                    >
-                      {getStatusText(transaction.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 justify-center">
-                      <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar">
-                        <Edit className="h-4 w-4" />
-                      </Badge>
-                      {transaction.status === 'em_aberto' && (
-                        <Badge variant="outline" className="bg-green-500 text-white cursor-pointer hover:bg-green-600" title="Marcar pago">
-                          <CheckCircle className="h-4 w-4" />
-                        </Badge>
                       )}
-                      <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Excluir">
-                        <Trash2 className="h-4 w-4" />
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="secondary" 
+                        className={getStatusColor(transaction.status)}
+                      >
+                        {getStatusText(transaction.status)}
                       </Badge>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 justify-center">
+                        <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar">
+                          <Edit className="h-4 w-4" />
+                        </Badge>
+                        {transaction.status === 'em_aberto' && (
+                          <Badge variant="outline" className="bg-green-500 text-white cursor-pointer hover:bg-green-600" title="Marcar pago">
+                            <CheckCircle className="h-4 w-4" />
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Excluir" onClick={() => handleExcluirTransaction(transaction.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Badge>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

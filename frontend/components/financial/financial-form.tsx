@@ -1,19 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Label } from '@/components/scopes/ui/label';
 import { Textarea } from '@/components/scopes/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
-import { ArrowLeft, Save, DollarSign, Calendar, CreditCard, FileText } from 'lucide-react';
+import { ArrowLeft, Save, DollarSign, Calendar, CreditCard, FileText, Loader2 } from 'lucide-react';
+import { contratosSupabaseService } from '@/lib/services/contratos-supabase';
+import { financeiroSupabaseService } from '@/lib/services/financeiro-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface FinancialFormProps {
   onClose: () => void;
+  financialId?: number;
 }
 
-export function FinancialForm({ onClose }: FinancialFormProps) {
+interface Contrato {
+  id: number;
+  numero_contrato: string;
+  cliente_nome?: string;
+}
+
+export function FinancialForm({ onClose, financialId }: FinancialFormProps) {
   const [formData, setFormData] = useState({
     contrato_id: '',
     tipo_movimento: 'entrada',
@@ -27,10 +37,10 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
     observacoes: ''
   });
 
-  // Mock data
-  const contratos = [
-    { id: '1', numero: 'CONT-2024-001', cliente: 'TechCorp Solutions' }
-  ];
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const { toast } = useToast();
 
   const formasPagamento = [
     { value: 'pix', label: 'PIX' },
@@ -47,10 +57,115 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
     { value: 'cancelado', label: 'Cancelado' }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadInitialData();
+    if (financialId) {
+      loadFinancialData();
+    }
+  }, [financialId]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoadingData(true);
+      const contratosResponse = await contratosSupabaseService.listar({ limit: 100 });
+      setContratos(contratosResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar contratos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os contratos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const loadFinancialData = async () => {
+    if (!financialId) return;
+    
+    try {
+      const response = await financeiroSupabaseService.buscarPorId(financialId);
+      const financial = response.data;
+      
+      setFormData({
+        contrato_id: financial.contrato_id?.toString() || '',
+        tipo_movimento: financial.tipo_movimento,
+        descricao: financial.descricao,
+        valor: financial.valor.toString(),
+        forma_pagamento: financial.forma_pagamento,
+        data_vencimento: financial.data_vencimento,
+        data_pagamento: financial.data_pagamento || '',
+        status: financial.status,
+        numero_parcela: financial.numero_parcela?.toString() || '',
+        observacoes: financial.observacoes || ''
+      });
+    } catch (error) {
+      console.error('Erro ao carregar transação:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados da transação.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Dados da transação:', formData);
-    onClose();
+    
+    if (!formData.descricao || !formData.valor || !formData.data_vencimento) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const contratoSelecionado = contratos.find(c => c.id === parseInt(formData.contrato_id || '0'));
+      
+      const financialData = {
+        contrato_id: formData.contrato_id ? parseInt(formData.contrato_id) : undefined,
+        contrato_numero: contratoSelecionado?.numero_contrato || 'N/A',
+        tipo_movimento: formData.tipo_movimento as 'entrada' | 'saida',
+        descricao: formData.descricao,
+        valor: parseFloat(formData.valor),
+        forma_pagamento: formData.forma_pagamento as 'pix' | 'cartao_credito' | 'boleto' | 'dinheiro' | 'transferencia',
+        data_vencimento: formData.data_vencimento,
+        data_pagamento: formData.data_pagamento || undefined,
+        status: formData.status as 'em_aberto' | 'pago' | 'atrasado' | 'cancelado',
+        numero_parcela: formData.numero_parcela ? parseInt(formData.numero_parcela) : undefined,
+        observacoes: formData.observacoes || undefined
+      };
+
+      if (financialId) {
+        await financeiroSupabaseService.atualizar(financialId, financialData);
+        toast({
+          title: "Sucesso",
+          description: "Transação atualizada com sucesso!",
+        });
+      } else {
+        await financeiroSupabaseService.criar(financialData);
+        toast({
+          title: "Sucesso",
+          description: "Transação criada com sucesso!",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar transação:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a transação. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -59,6 +174,19 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
       [field]: value
     }));
   };
+
+  const getContratoLabel = (contrato: Contrato) => {
+    return `${contrato.numero_contrato}${contrato.cliente_nome ? ` - ${contrato.cliente_nome}` : ''}`;
+  };
+
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -75,8 +203,8 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
                 <DollarSign className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Nova Transação</h2>
-                <p className="text-muted-foreground">Registre uma nova movimentação financeira</p>
+                <h2 className="text-3xl font-bold">{financialId ? 'Editar' : 'Nova'} Transação</h2>
+                <p className="text-muted-foreground">{financialId ? 'Edite a' : 'Registre uma nova'} movimentação financeira</p>
               </div>
             </div>
           </div>
@@ -122,8 +250,8 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {contratos.map(contrato => (
-                      <SelectItem key={contrato.id} value={contrato.id}>
-                        {contrato.numero} - {contrato.cliente}
+                      <SelectItem key={contrato.id} value={contrato.id.toString()}>
+                        {getContratoLabel(contrato)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -259,12 +387,16 @@ export function FinancialForm({ onClose }: FinancialFormProps) {
 
             {/* Botões */}
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4" />
-                Salvar Transação
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {loading ? 'Salvando...' : 'Salvar Transação'}
               </Button>
             </div>
           </CardContent>

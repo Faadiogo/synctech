@@ -26,6 +26,7 @@ import { ClientList } from '@/components/clients/client-list';
 import { ClientForm } from '@/components/clients/client-form';
 import { ProjectList } from '@/components/projects/project-list';
 import { ProjectForm } from '@/components/projects/project-form';
+import { ProjectView } from '@/components/projects/project-view';
 import { BudgetList } from '@/components/budgets/budget-list';
 import { BudgetForm } from '@/components/budgets/budget-form';
 import { ContractList } from '@/components/contracts/contract-list';
@@ -47,6 +48,14 @@ export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [clientProjectsView, setClientProjectsView] = useState<{clienteId: number, clienteName: string} | null>(null);
+  
+  // Estados para modais e edição
+  const [projectViewId, setProjectViewId] = useState<number | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [projectTasksView, setProjectTasksView] = useState<number | null>(null);
+  const [budgetProjectView, setBudgetProjectView] = useState<{projectId: number, clienteId: number, valorEstimado?: number} | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
   const router = useRouter();
 
   // Função para limpar visualização de projetos ao mudar de página
@@ -54,6 +63,59 @@ export default function Dashboard() {
     setActivePage(page);
     setClientProjectsView(null);
     setShowForm(false);
+    setProjectViewId(null);
+    setEditingProjectId(null);
+    setProjectTasksView(null);
+    setBudgetProjectView(null);
+  };
+
+  // Funções para gerenciar projetos
+  const handleViewProject = (projectId: number) => {
+    setProjectViewId(projectId);
+  };
+
+  const handleEditProject = (projectId: number) => {
+    setEditingProjectId(projectId);
+    setShowForm(true);
+  };
+
+  const handleViewTasks = (projectId: number) => {
+    setProjectTasksView(projectId);
+    setActivePage('tasks');
+  };
+
+  const handleGenerateBudget = async (projectId: number) => {
+    try {
+      // Buscar dados do projeto para pré-preencher o orçamento
+      const { projetosSupabaseService } = await import('@/lib/services/projetos-supabase');
+      const response = await projetosSupabaseService.buscarPorId(projectId);
+      const projeto = response.data;
+      
+      setBudgetProjectView({
+        projectId: projeto.id,
+        clienteId: projeto.cliente_id,
+        valorEstimado: projeto.valor_estimado
+      });
+      setActivePage('budgets');
+      setShowForm(true);
+    } catch (error) {
+      console.error('Erro ao buscar dados do projeto:', error);
+    }
+  };
+
+  const handleCloseProjectView = () => {
+    setProjectViewId(null);
+  };
+
+  const handleProjectFormSuccess = () => {
+    setShowForm(false);
+    setEditingProjectId(null);
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleBudgetFormClose = () => {
+    setShowForm(false);
+    setBudgetProjectView(null);
   };
 
   // Mock data for dashboard
@@ -101,9 +163,20 @@ export default function Dashboard() {
         case 'clients':
           return <ClientForm onClose={() => setShowForm(false)} />;
         case 'projects':
-          return <ProjectForm onClose={() => setShowForm(false)} />;
+          return (
+            <ProjectForm 
+              onClose={() => setShowForm(false)}
+              projetoId={editingProjectId || undefined}
+              onSuccess={handleProjectFormSuccess}
+            />
+          );
         case 'budgets':
-          return <BudgetForm onClose={() => setShowForm(false)} />;
+          return (
+            <BudgetForm 
+              onClose={handleBudgetFormClose}
+              projectData={budgetProjectView}
+            />
+          );
         case 'contracts':
           return <ContractForm onClose={() => setShowForm(false)} />;
         case 'financial':
@@ -121,13 +194,29 @@ export default function Dashboard() {
       }
     }
 
+    // Se estamos visualizando um projeto específico
+    if (projectViewId) {
+      return (
+        <ProjectView 
+          projectId={projectViewId}
+          onClose={handleCloseProjectView}
+          onEdit={() => handleEditProject(projectViewId)}
+        />
+      );
+    }
+
     // Se estamos visualizando projetos de um cliente específico
     if (clientProjectsView) {
       return (
         <ProjectList 
           onNewProject={() => setShowForm(true)} 
+          onEditProject={handleEditProject}
+          onViewProject={handleViewProject}
+          onViewTasks={handleViewTasks}
+          onGenerateBudget={handleGenerateBudget}
           clienteId={clientProjectsView.clienteId}
           clienteName={clientProjectsView.clienteName}
+          refreshTrigger={refreshTrigger}
           onBack={() => {
             setClientProjectsView(null);
             setActivePage('clients');
@@ -147,7 +236,16 @@ export default function Dashboard() {
           />
         );
       case 'projects':
-        return <ProjectList onNewProject={() => setShowForm(true)} />;
+        return (
+          <ProjectList 
+            onNewProject={() => setShowForm(true)}
+            onEditProject={handleEditProject}
+            onViewProject={handleViewProject}
+            onViewTasks={handleViewTasks}
+            onGenerateBudget={handleGenerateBudget}
+            refreshTrigger={refreshTrigger}
+          />
+        );
       case 'budgets':
         return <BudgetList onNewBudget={() => setShowForm(true)} />;
       case 'contracts':
@@ -157,7 +255,16 @@ export default function Dashboard() {
       case 'meetings':
         return <MeetingList onNewMeeting={() => setShowForm(true)} />;
       case 'tasks':
-        return <TaskList onNewTask={() => setShowForm(true)} />;
+        return (
+          <TaskList 
+            onNewTask={() => setShowForm(true)}
+            projectFilter={projectTasksView}
+            onBack={projectTasksView ? () => {
+              setProjectTasksView(null);
+              setActivePage('projects');
+            } : undefined}
+          />
+        );
       case 'scopes':
         return <ScopeList onNewScope={() => setShowForm(true)} />;
       case 'schedules':

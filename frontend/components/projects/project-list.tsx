@@ -27,6 +27,17 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/scopes/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/scopes/ui/alert-dialog';
 import { Checkbox } from '@/components/scopes/ui/checkbox';
 import { Search, Plus, MoreHorizontal, Calendar, Clock, DollarSign, Edit, Trash2, FolderOpen, Loader2, ArrowLeft, Eye, Download, ChevronDown, CheckSquare, Square, FileText} from 'lucide-react';
 import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
@@ -35,13 +46,27 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProjectListProps {
   onNewProject: () => void;
+  onEditProject?: (projectId: number) => void;
+  onViewProject?: (projectId: number) => void;
+  onViewTasks?: (projectId: number) => void;
+  onGenerateBudget?: (projectId: number) => void;
   refreshTrigger?: number;
   clienteId?: number;
   clienteName?: string;
   onBack?: () => void;
 }
 
-export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteName, onBack }: ProjectListProps) {
+export function ProjectList({ 
+  onNewProject, 
+  onEditProject,
+  onViewProject,
+  onViewTasks,
+  onGenerateBudget,
+  refreshTrigger, 
+  clienteId, 
+  clienteName, 
+  onBack 
+}: ProjectListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +75,8 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'todos' | 'nao_iniciado' | 'planejamento' | 'apresentado' | 'orcamento_entregue' | 'orcamento_aprovado' | 'contrato_assinado' | 'em_andamento' | 'entregue' | 'suporte_garantia' | 'concluido'>('todos');
+  const [projectToDelete, setProjectToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const { toast } = useToast();
 
   const loadProjects = async () => {
@@ -102,11 +129,59 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
     });
   };
 
-  const handleBulkAction = (action: 'concluir' | 'arquivar' | 'excluir') => {
+  const handleBulkConclude = async () => {
     if (selectedProjects.length === 0) return;
-    console.log('Bulk', action, selectedProjects);
-    setSelectedProjects([]);
-    setIsAllSelected(false);
+    
+    try {
+      // Atualizar status dos projetos selecionados para 'concluido'
+      for (const projectId of selectedProjects) {
+        await projetosSupabaseService.atualizar(projectId, { status: 'concluido' });
+      }
+      
+      toast({
+        title: "Sucesso",
+        description: `${selectedProjects.length} projeto(s) marcado(s) como concluído(s).`,
+      });
+      
+      setSelectedProjects([]);
+      setIsAllSelected(false);
+      loadProjects();
+    } catch (error) {
+      console.error('Erro ao concluir projetos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível concluir alguns projetos.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProjects.length === 0) return;
+    
+    try {
+      // Excluir projetos selecionados
+      for (const projectId of selectedProjects) {
+        await projetosSupabaseService.excluir(projectId);
+      }
+      
+      toast({
+        title: "Sucesso",
+        description: `${selectedProjects.length} projeto(s) excluído(s) com sucesso.`,
+      });
+      
+      setSelectedProjects([]);
+      setIsAllSelected(false);
+      setShowBulkDeleteDialog(false);
+      loadProjects();
+    } catch (error) {
+      console.error('Erro ao excluir projetos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir alguns projetos.",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
@@ -136,6 +211,7 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
         title: "Sucesso",
         description: "Projeto excluído com sucesso.",
       });
+      setProjectToDelete(null);
       loadProjects();
     } catch (error) {
       console.error('Erro ao excluir projeto:', error);
@@ -149,7 +225,7 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
 
   const getStatusColor = (status: string) => {
     const colors = {
-      'nao_iniciado': 'bg-gray-100 text-gray-800',
+      'nao_iniciado': 'bg-gray-100 text-black',
       'planejamento': 'status-info',
       'apresentado': 'bg-purple-100 text-purple-800',
       'orcamento_entregue': 'status-pending',
@@ -160,7 +236,7 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
       'suporte_garantia': 'bg-indigo-100 text-indigo-800',
       'concluido': 'bg-green-100 text-green-800'
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-black';
   };
 
   const getStatusText = (status: string) => {
@@ -184,8 +260,7 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
     const matchesSearch = (
       project.nome.toLowerCase().includes(searchLower) ||
       (project.nome_empresa && project.nome_empresa.toLowerCase().includes(searchLower)) ||
-      (project.nome_completo && project.nome_completo.toLowerCase().includes(searchLower)) ||
-      (project.cliente_nome && project.cliente_nome.toLowerCase().includes(searchLower))
+      (project.nome_completo && project.nome_completo.toLowerCase().includes(searchLower))
     );
     const matchesStatus = statusFilter === 'todos' ? true : project.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -197,35 +272,35 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
       <div className="relative mb-8 p-6 rounded-2xl gradient-bg border border-border/50">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
         <div className="relative">
-                      <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 mb-2">
-                {clienteName && onBack && (
-                  <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-white/20">
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                <div className="p-2 rounded-lg bg-primary/20">
-                  <FolderOpen className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold">
-                    {clienteName ? `Projetos de ${clienteName}` : 'Projetos'}
-                  </h2>
-                  <p className="text-muted-foreground">
-                    {clienteName ? `Projetos do cliente ${clienteName}` : 'Gerencie todos os seus projetos de desenvolvimento'}
-                  </p>
-                </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 mb-2">
+              {clienteName && onBack && (
+                <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-white/20">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
+              <div className="p-2 rounded-lg bg-primary/20">
+                <FolderOpen className="h-6 w-6 text-primary" />
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="status-info w-52 text-center justify-center text-lg">
-                  Total: {getProjectCount(filteredProjects.length)}
-                </Badge>
+              <div>
+                <h2 className="text-3xl font-bold">
+                  {clienteName ? `Projetos de ${clienteName}` : 'Projetos'}
+                </h2>
+                <p className="text-muted-foreground">
+                  {clienteName ? `Projetos do cliente ${clienteName}` : 'Gerencie todos os seus projetos de desenvolvimento'}
+                </p>
               </div>
-              <Button onClick={onNewProject} className="gap-2 bg-primary hover:bg-primary/90">
-                <Plus className="h-4 w-4" />
-                Novo Projeto
-              </Button>
             </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="status-info w-52 text-center justify-center text-lg">
+                Total: {getProjectCount(filteredProjects.length)}
+              </Badge>
+            </div>
+            <Button onClick={onNewProject} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              Novo Projeto
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -254,15 +329,11 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleBulkAction('concluir')}>
+                    <DropdownMenuItem onClick={handleBulkConclude}>
                       <CheckSquare className="mr-2 h-4 w-4 text-green-600" />
                       Concluir Selecionados
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleBulkAction('arquivar')}>
-                      <Square className="mr-2 h-4 w-4 text-orange-600" />
-                      Arquivar Selecionados
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleBulkAction('excluir')}>
+                    <DropdownMenuItem onClick={() => setShowBulkDeleteDialog(true)}>
                       <Trash2 className="mr-2 h-4 w-4 text-red-600" />
                       Excluir Selecionados
                     </DropdownMenuItem>
@@ -317,7 +388,7 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
                   <TableHead>Cliente</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Progresso</TableHead>
-                  <TableHead>Prazo</TableHead>
+                  <TableHead>Prazos</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Tecnologias</TableHead>
                   <TableHead>Ações</TableHead>
@@ -344,7 +415,28 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{project.nome_empresa || project.nome_completo || project.cliente_nome || 'Cliente não informado'}</div>
+                      <div className="flex justify-center">
+                        <div 
+                          className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          title={project.nome_empresa || project.nome_completo || project.cliente_nome || 'Cliente não informado'}
+                        >
+                          {project.cliente_foto ? (
+                            <img 
+                              src={project.cliente_foto} 
+                              alt={project.nome_empresa || project.nome_completo || project.cliente_nome || 'Cliente'} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`text-xs font-semibold text-gray-300 ${project.cliente_foto ? 'hidden' : ''}`}>
+                            {(project.nome_empresa || project.nome_completo || project.cliente_nome || 'CI')[0].toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -363,12 +455,23 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
                       </div>
                     </TableCell>
                     <TableCell>
-                      {project.data_alvo && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-3 w-3 text-gray-400" />
-                          {new Date(project.data_alvo).toLocaleDateString('pt-BR')}
-                        </div>
-                      )}
+                      <div className="text-sm space-y-1">
+                        {project.data_inicio && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-medium">Início:</span>
+                            <span>{new Date(project.data_inicio).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        )}
+                        {project.data_alvo && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-medium">Alvo:</span>
+                            <span>{new Date(project.data_alvo).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        )}
+                        {!project.data_inicio && !project.data_alvo && (
+                          <span className="text-muted-foreground">Não informado</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {project.valor_estimado && (
@@ -399,21 +502,66 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 justify-center">
-                        <Badge variant="outline" className="bg-blue-500 text-white cursor-pointer hover:bg-blue-600" title="Visualizar">
+                        <Badge 
+                          variant="outline" 
+                          className="bg-blue-500 text-white cursor-pointer hover:bg-blue-600" 
+                          title="Visualizar"
+                          onClick={() => onViewProject?.(project.id)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Badge>
-                        <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar">
+                        <Badge 
+                          variant="outline" 
+                          className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" 
+                          title="Editar"
+                          onClick={() => onEditProject?.(project.id)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Badge>
-                        <Badge variant="outline" className="bg-purple-500 text-white cursor-pointer hover:bg-purple-600" title="Ver Tarefas">
+                        <Badge 
+                          variant="outline" 
+                          className="bg-purple-500 text-white cursor-pointer hover:bg-purple-600" 
+                          title="Ver Tarefas"
+                          onClick={() => onViewTasks?.(project.id)}
+                        >
                           <CheckSquare className="h-4 w-4" />
                         </Badge>
-                        <Badge variant="outline" className="bg-green-500 text-white cursor-pointer hover:bg-green-600" title="Gerar Orçamento">
+                        <Badge 
+                          variant="outline" 
+                          className="bg-green-500 text-white cursor-pointer hover:bg-green-600" 
+                          title="Gerar Orçamento"
+                          onClick={() => onGenerateBudget?.(project.id)}
+                        >
                           <FileText className="h-4 w-4" />
                         </Badge>
-                        <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Arquivar" onClick={() => handleExcluirProjeto(project.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Badge>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Badge 
+                              variant="outline" 
+                              className="bg-red-500 text-white cursor-pointer hover:bg-red-600" 
+                              title="Excluir"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Badge>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir o projeto "{project.nome}"? Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleExcluirProjeto(project.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -423,6 +571,27 @@ export function ProjectList({ onNewProject, refreshTrigger, clienteId, clienteNa
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de confirmação para exclusão em lote */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão em Lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedProjects.length} projeto(s) selecionado(s)? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir Todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

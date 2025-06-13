@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
@@ -35,6 +35,7 @@ import {
   CheckSquare,
   Square,
   Send,
+  Loader2,
 } from 'lucide-react';
 import { Checkbox } from '@/components/scopes/ui/checkbox';
 import {
@@ -44,17 +45,8 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/scopes/ui/select';
-
-interface Contract {
-  id: number;
-  numero_contrato: string;
-  cliente_nome: string;
-  projeto_nome: string;
-  data_assinatura: string;
-  valor_contrato: number;
-  qtd_parcelas: number;
-  status: string;
-}
+import { contratosSupabaseService, Contrato } from '@/lib/services/contratos-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface ContractListProps {
   onNewContract?: () => void;
@@ -66,20 +58,76 @@ export function ContractList({ onNewContract, refreshTrigger }: ContractListProp
   const [selectedContracts, setSelectedContracts] = useState<number[]>([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativo' | 'concluido' | 'cancelado'>('todos');
+  const [contracts, setContracts] = useState<Contrato[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { toast } = useToast();
 
-  // Mock data
-  const contracts: Contract[] = [
-    {
-      id: 1,
-      numero_contrato: 'CONT-2024-001',
-      cliente_nome: 'TechCorp Solutions',
-      projeto_nome: 'Sistema de Gestão Empresarial',
-      data_assinatura: '2024-01-15',
-      valor_contrato: 80000,
-      qtd_parcelas: 4,
-      status: 'ativo'
+  const loadContracts = async () => {
+    try {
+      setLoading(true);
+      const response = await contratosSupabaseService.listar({
+        status: statusFilter === 'todos' ? undefined : statusFilter,
+        busca: searchTerm || undefined,
+        page: currentPage,
+        limit: 10
+      });
+      setContracts(response.data);
+      if (response.pagination) {
+        setTotalPages(response.pagination.pages);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contratos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os contratos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadContracts();
+  }, [currentPage, refreshTrigger, statusFilter]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadContracts();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset selection when contracts change
+  useEffect(() => {
+    setSelectedContracts([]);
+    setIsAllSelected(false);
+  }, [contracts]);
+
+  const handleExcluirContract = async (id: number) => {
+    try {
+      await contratosSupabaseService.excluir(id);
+      toast({
+        title: "Sucesso",
+        description: "Contrato excluído com sucesso.",
+      });
+      loadContracts();
+    } catch (error) {
+      console.error('Erro ao excluir contrato:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o contrato.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -87,7 +135,7 @@ export function ContractList({ onNewContract, refreshTrigger }: ContractListProp
       'concluido': 'status-info',
       'cancelado': 'bg-red-100 text-red-800'
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-300';
   };
 
   const getStatusText = (status: string) => {
@@ -103,8 +151,8 @@ export function ContractList({ onNewContract, refreshTrigger }: ContractListProp
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = (
       contract.numero_contrato.toLowerCase().includes(searchLower) ||
-      contract.cliente_nome.toLowerCase().includes(searchLower) ||
-      contract.projeto_nome.toLowerCase().includes(searchLower)
+      (contract.cliente_nome && contract.cliente_nome.toLowerCase().includes(searchLower)) ||
+      (contract.projeto_nome && contract.projeto_nome.toLowerCase().includes(searchLower))
     );
     const matchesStatus = statusFilter === 'todos' ? true : contract.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -228,98 +276,130 @@ export function ContractList({ onNewContract, refreshTrigger }: ContractListProp
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={isAllSelected}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Selecionar todos"
-                  />
-                </TableHead>
-                <TableHead>Número</TableHead>
-                <TableHead>Cliente/Projeto</TableHead>
-                <TableHead>Data Assinatura</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Parcelas</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredContracts.map((contract) => (
-                <TableRow key={contract.id} className="hover:bg-muted/50 transition-colors">
-                  <TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Carregando contratos...</span>
+            </div>
+          ) : filteredContracts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhum contrato encontrado.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedContracts.includes(contract.id)}
-                      onCheckedChange={() => handleSelectContract(contract.id)}
-                      aria-label={`Selecionar contrato ${contract.numero_contrato}`}
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Selecionar todos"
                     />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-blue-500/20">
-                        <Briefcase className="h-4 w-4 text-blue-400" />
-                      </div>
-                      <div>
-                        <div className="font-medium">{contract.numero_contrato}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{contract.cliente_nome}</div>
-                      <div className="text-sm text-muted-foreground">{contract.projeto_nome}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-3 w-3 text-gray-400" />
-                      {new Date(contract.data_assinatura).toLocaleDateString('pt-BR')}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-green-600">
-                      R$ {contract.valor_contrato.toLocaleString('pt-BR')}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="status-pending">
-                      {contract.qtd_parcelas}x
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={getStatusColor(contract.status)}
-                    >
-                      {getStatusText(contract.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 justify-center">
-                      <Badge variant="outline" className="bg-blue-500 text-white cursor-pointer hover:bg-blue-600" title="Visualizar">
-                        <Eye className="h-4 w-4" />
-                      </Badge>
-                      <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar">
-                        <Edit className="h-4 w-4" />
-                      </Badge>
-                      <Badge variant="outline" className="bg-purple-500 text-white cursor-pointer hover:bg-purple-600" title="Download PDF">
-                        <Download className="h-4 w-4" />
-                      </Badge>
-                      <Badge variant="outline" className="bg-teal-500 text-white cursor-pointer hover:bg-teal-600" title="Ver Parcelas">
-                        <DollarSign className="h-4 w-4" />
-                      </Badge>
-                      <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Cancelar">
-                        <Trash2 className="h-4 w-4" />
-                      </Badge>
-                    </div>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Cliente/Projeto</TableHead>
+                  <TableHead>Data Assinatura</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Parcelas</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredContracts.map((contract) => (
+                  <TableRow key={contract.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedContracts.includes(contract.id)}
+                        onCheckedChange={() => handleSelectContract(contract.id)}
+                        aria-label={`Selecionar contrato ${contract.numero_contrato}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-500/20">
+                          <Briefcase className="h-4 w-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{contract.numero_contrato}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          title={contract.cliente_nome || 'Cliente não informado'}
+                        >
+                          {contract.cliente_foto ? (
+                            <img 
+                              src={contract.cliente_foto} 
+                              alt={contract.cliente_nome || 'Cliente'} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`text-xs font-semibold text-gray-300 ${contract.cliente_foto ? 'hidden' : ''}`}>
+                            {(contract.cliente_nome || 'CI')[0].toUpperCase()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-medium">{contract.projeto_nome || 'Projeto não informado'}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-3 w-3 text-gray-400" />
+                        {new Date(contract.data_assinatura).toLocaleDateString('pt-BR')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-green-600">
+                        R$ {contract.valor_contrato.toLocaleString('pt-BR')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="status-pending">
+                        {contract.qtd_parcelas}x
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={getStatusColor(contract.status)}
+                      >
+                        {getStatusText(contract.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 justify-center">
+                        <Badge variant="outline" className="bg-blue-500 text-white cursor-pointer hover:bg-blue-600" title="Visualizar">
+                          <Eye className="h-4 w-4" />
+                        </Badge>
+                        <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar">
+                          <Edit className="h-4 w-4" />
+                        </Badge>
+                        <Badge variant="outline" className="bg-purple-500 text-white cursor-pointer hover:bg-purple-600" title="Download PDF">
+                          <Download className="h-4 w-4" />
+                        </Badge>
+                        <Badge variant="outline" className="bg-teal-500 text-white cursor-pointer hover:bg-teal-600" title="Ver Parcelas">
+                          <DollarSign className="h-4 w-4" />
+                        </Badge>
+                        <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Cancelar" onClick={() => handleExcluirContract(contract.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Badge>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

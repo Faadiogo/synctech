@@ -1,19 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Label } from '@/components/scopes/ui/label';
 import { Textarea } from '@/components/scopes/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
-import { ArrowLeft, Save, FileText, User, DollarSign } from 'lucide-react';
+import { ArrowLeft, Save, FileText, User, DollarSign, Loader2 } from 'lucide-react';
+import { clientesSupabaseService } from '@/lib/services/clientes-supabase';
+import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
+import { orcamentosSupabaseService } from '@/lib/services/orcamentos-supabase';
+import { contratosSupabaseService } from '@/lib/services/contratos-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface ContractFormProps {
   onClose: () => void;
+  contractId?: number;
 }
 
-export function ContractForm({ onClose }: ContractFormProps) {
+interface Cliente {
+  id: number;
+  nome_empresa?: string;
+  nome_completo?: string;
+}
+
+interface Projeto {
+  id: number;
+  nome: string;
+  cliente_id: number;
+}
+
+interface Orcamento {
+  id: number;
+  numero_orcamento: string;
+  valor_final: number;
+  projeto_id: number;
+}
+
+export function ContractForm({ onClose, contractId }: ContractFormProps) {
   const [formData, setFormData] = useState({
     cliente_id: '',
     projeto_id: '',
@@ -26,29 +51,151 @@ export function ContractForm({ onClose }: ContractFormProps) {
     observacoes: ''
   });
 
-  // Mock data
-  const clientes = [
-    { id: '1', nome: 'TechCorp Solutions' },
-    { id: '2', nome: 'Maria Santos' }
-  ];
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const { toast } = useToast();
 
-  const projetos = [
-    { id: '1', nome: 'Sistema de Gestão Empresarial', cliente_id: '1' },
-    { id: '2', nome: 'E-commerce Personalizado', cliente_id: '2' }
-  ];
+  useEffect(() => {
+    loadInitialData();
+    if (contractId) {
+      loadContractData();
+    }
+  }, [contractId]);
 
-  const orcamentos = [
-    { id: '1', numero: 'ORC-2024-001', valor: 80000, projeto_id: '1' },
-    { id: '2', numero: 'ORC-2024-002', valor: 80000, projeto_id: '2' }
-  ];
+  const loadInitialData = async () => {
+    try {
+      setLoadingData(true);
+      const [clientesResponse, projetosResponse, orcamentosResponse] = await Promise.all([
+        clientesSupabaseService.listar({ limit: 100 }),
+        projetosSupabaseService.listar({ limit: 100 }),
+        orcamentosSupabaseService.listar({ limit: 100 })
+      ]);
+      
+      setClientes(clientesResponse.data.data);
+      setProjetos(projetosResponse.data);
+      setOrcamentos(orcamentosResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
-  const projetosFiltrados = projetos.filter(p => p.cliente_id === formData.cliente_id);
-  const orcamentosFiltrados = orcamentos.filter(o => o.projeto_id === formData.projeto_id);
+  const loadContractData = async () => {
+    if (!contractId) return;
+    
+    try {
+      const response = await contratosSupabaseService.buscarPorId(contractId);
+      const contract = response.data;
+      
+      setFormData({
+        cliente_id: contract.cliente_id.toString(),
+        projeto_id: contract.projeto_id?.toString() || '',
+        orcamento_id: contract.orcamento_id?.toString() || '',
+        valor_orcado: contract.valor_orcado?.toString() || '',
+        desconto: contract.desconto?.toString() || '',
+        valor_contrato: contract.valor_contrato.toString(),
+        data_assinatura: contract.data_assinatura,
+        qtd_parcelas: contract.qtd_parcelas.toString(),
+        observacoes: contract.observacoes || ''
+      });
+    } catch (error) {
+      console.error('Erro ao carregar contrato:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados do contrato.",
+        variant: "destructive",
+      });
+    }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const projetosFiltrados = projetos?.filter(p => p.cliente_id.toString() === formData.cliente_id) || [];
+  const orcamentosFiltrados = orcamentos?.filter(o => o.projeto_id?.toString() === formData.projeto_id) || [];
+
+  const generateContractNumber = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const timestamp = now.getTime().toString().slice(-4);
+    return `CONT-${year}${month}${day}-${timestamp}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Dados do contrato:', formData);
-    onClose();
+    
+    if (!formData.cliente_id || !formData.data_assinatura || !formData.valor_contrato) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      if (contractId) {
+        const updateData = {
+          cliente_id: parseInt(formData.cliente_id),
+          projeto_id: formData.projeto_id ? parseInt(formData.projeto_id) : undefined,
+          orcamento_id: formData.orcamento_id ? parseInt(formData.orcamento_id) : undefined,
+          valor_orcado: parseFloat(formData.valor_orcado) || undefined,
+          desconto: parseFloat(formData.desconto) || 0,
+          valor_contrato: parseFloat(formData.valor_contrato),
+          data_assinatura: formData.data_assinatura,
+          qtd_parcelas: parseInt(formData.qtd_parcelas),
+          status: 'ativo' as const,
+          observacoes: formData.observacoes || undefined
+        };
+        
+        await contratosSupabaseService.atualizar(contractId, updateData);
+        toast({
+          title: "Sucesso",
+          description: "Contrato atualizado com sucesso!",
+        });
+      } else {
+        const contractData = {
+          numero_contrato: generateContractNumber(),
+          cliente_id: parseInt(formData.cliente_id),
+          projeto_id: formData.projeto_id ? parseInt(formData.projeto_id) : undefined,
+          orcamento_id: formData.orcamento_id ? parseInt(formData.orcamento_id) : undefined,
+          valor_orcado: parseFloat(formData.valor_orcado) || undefined,
+          desconto: parseFloat(formData.desconto) || 0,
+          valor_contrato: parseFloat(formData.valor_contrato),
+          data_assinatura: formData.data_assinatura,
+          qtd_parcelas: parseInt(formData.qtd_parcelas),
+          status: 'ativo' as const,
+          observacoes: formData.observacoes || undefined
+        };
+        
+        await contratosSupabaseService.criar(contractData);
+        toast({
+          title: "Sucesso",
+          description: "Contrato criado com sucesso!",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar contrato:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o contrato. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -64,17 +211,45 @@ export function ContractForm({ onClose }: ContractFormProps) {
       
       // Preencher valor orçado quando selecionar orçamento
       if (field === 'orcamento_id') {
-        const orcamento = orcamentos.find(o => o.id === value);
+        const orcamento = orcamentos.find(o => o.id.toString() === value);
         if (orcamento) {
-          newData.valor_orcado = orcamento.valor.toString();
+          newData.valor_orcado = orcamento.valor_final.toString();
           const desconto = parseFloat(newData.desconto) || 0;
-          newData.valor_contrato = (orcamento.valor - desconto).toString();
+          newData.valor_contrato = (orcamento.valor_final - desconto).toString();
         }
+      }
+      
+      // Limpar projeto e orçamento quando cliente mudar
+      if (field === 'cliente_id') {
+        newData.projeto_id = '';
+        newData.orcamento_id = '';
+        newData.valor_orcado = '';
+        newData.valor_contrato = '';
+      }
+      
+      // Limpar orçamento quando projeto mudar
+      if (field === 'projeto_id') {
+        newData.orcamento_id = '';
+        newData.valor_orcado = '';
+        newData.valor_contrato = '';
       }
       
       return newData;
     });
   };
+
+  const getClienteName = (cliente: Cliente) => {
+    return cliente.nome_empresa || cliente.nome_completo || `Cliente ${cliente.id}`;
+  };
+
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -91,8 +266,8 @@ export function ContractForm({ onClose }: ContractFormProps) {
                 <FileText className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Novo Contrato</h2>
-                <p className="text-muted-foreground">Crie um novo contrato baseado em um orçamento aprovado</p>
+                <h2 className="text-3xl font-bold">{contractId ? 'Editar' : 'Novo'} Contrato</h2>
+                <p className="text-muted-foreground">{contractId ? 'Edite o' : 'Crie um novo'} contrato baseado em um orçamento aprovado</p>
               </div>
             </div>
           </div>
@@ -122,11 +297,11 @@ export function ContractForm({ onClose }: ContractFormProps) {
                     <SelectValue placeholder="Selecione um cliente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clientes.map(cliente => (
-                      <SelectItem key={cliente.id} value={cliente.id}>
-                        {cliente.nome}
-                      </SelectItem>
-                    ))}
+                                          {clientes?.map(cliente => (
+                        <SelectItem key={cliente.id} value={cliente.id.toString()}>
+                          {getClienteName(cliente)}
+                        </SelectItem>
+                      )) || []}
                   </SelectContent>
                 </Select>
               </div>
@@ -141,11 +316,11 @@ export function ContractForm({ onClose }: ContractFormProps) {
                     <SelectValue placeholder="Selecione um projeto" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projetosFiltrados.map(projeto => (
-                      <SelectItem key={projeto.id} value={projeto.id}>
-                        {projeto.nome}
-                      </SelectItem>
-                    ))}
+                                          {projetosFiltrados?.map(projeto => (
+                        <SelectItem key={projeto.id} value={projeto.id.toString()}>
+                          {projeto.nome}
+                        </SelectItem>
+                      )) || []}
                   </SelectContent>
                 </Select>
               </div>
@@ -160,11 +335,11 @@ export function ContractForm({ onClose }: ContractFormProps) {
                     <SelectValue placeholder="Selecione um orçamento" />
                   </SelectTrigger>
                   <SelectContent>
-                    {orcamentosFiltrados.map(orcamento => (
-                      <SelectItem key={orcamento.id} value={orcamento.id}>
-                        {orcamento.numero} - R$ {orcamento.valor.toLocaleString('pt-BR')}
+                    {orcamentosFiltrados?.map(orcamento => (
+                      <SelectItem key={orcamento.id} value={orcamento.id.toString()}>
+                        {orcamento.numero_orcamento} - R$ {orcamento.valor_final.toLocaleString('pt-BR')}
                       </SelectItem>
-                    ))}
+                    )) || []}
                   </SelectContent>
                 </Select>
               </div>
@@ -260,12 +435,16 @@ export function ContractForm({ onClose }: ContractFormProps) {
 
             {/* Botões */}
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4" />
-                Salvar Contrato
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {loading ? 'Salvando...' : 'Salvar Contrato'}
               </Button>
             </div>
           </CardContent>

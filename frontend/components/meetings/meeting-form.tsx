@@ -1,19 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Label } from '@/components/scopes/ui/label';
 import { Textarea } from '@/components/scopes/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
-import { ArrowLeft, Save, Calendar, Clock, Video, Users } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Clock, Video, Users, Loader2 } from 'lucide-react';
+import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
+import { reunioesSupabaseService } from '@/lib/services/reunioes-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface MeetingFormProps {
   onClose: () => void;
+  meetingId?: number;
 }
 
-export function MeetingForm({ onClose }: MeetingFormProps) {
+interface Projeto {
+  id: number;
+  nome: string;
+  cliente_nome?: string;
+}
+
+export function MeetingForm({ onClose, meetingId }: MeetingFormProps) {
   const [formData, setFormData] = useState({
     projeto_id: '',
     titulo: '',
@@ -27,11 +37,10 @@ export function MeetingForm({ onClose }: MeetingFormProps) {
     ata_reuniao: ''
   });
 
-  // Mock data
-  const projetos = [
-    { id: '1', nome: 'Sistema de Gestão Empresarial', cliente: 'TechCorp Solutions' },
-    { id: '2', nome: 'E-commerce Personalizado', cliente: 'Maria Santos' }
-  ];
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const { toast } = useToast();
 
   const tiposReuniao = [
     { value: 'online', label: 'Online' },
@@ -39,10 +48,113 @@ export function MeetingForm({ onClose }: MeetingFormProps) {
     { value: 'telefone', label: 'Telefone' }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadInitialData();
+    if (meetingId) {
+      loadMeetingData();
+    }
+  }, [meetingId]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoadingData(true);
+      const projetosResponse = await projetosSupabaseService.listar({ limit: 100 });
+      setProjetos(projetosResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar projetos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os projetos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const loadMeetingData = async () => {
+    if (!meetingId) return;
+    
+    try {
+      const response = await reunioesSupabaseService.buscarPorId(meetingId);
+      const meeting = response.data;
+      
+      setFormData({
+        projeto_id: meeting.projeto_id.toString(),
+        titulo: meeting.titulo,
+        descricao: meeting.agenda || '',
+        data_reuniao: meeting.data_reuniao,
+        horario_inicio: meeting.horario_inicio,
+        horario_fim: meeting.horario_fim,
+        tipo: meeting.tipo,
+        link_reuniao: meeting.link_reuniao || '',
+        participantes: meeting.local || '',
+        ata_reuniao: meeting.observacoes || ''
+      });
+    } catch (error) {
+      console.error('Erro ao carregar reunião:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados da reunião.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Dados da reunião:', formData);
-    onClose();
+    
+    if (!formData.projeto_id || !formData.titulo || !formData.data_reuniao || !formData.horario_inicio || !formData.horario_fim) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const meetingData = {
+        projeto_id: parseInt(formData.projeto_id),
+        titulo: formData.titulo,
+        agenda: formData.descricao || undefined,
+        data_reuniao: formData.data_reuniao,
+        horario_inicio: formData.horario_inicio,
+        horario_fim: formData.horario_fim,
+        tipo: formData.tipo,
+        status: 'agendada',
+        link_reuniao: formData.link_reuniao || undefined,
+        local: formData.participantes || undefined,
+        observacoes: formData.ata_reuniao || undefined
+      };
+
+      if (meetingId) {
+        await reunioesSupabaseService.atualizar(meetingId, meetingData);
+        toast({
+          title: "Sucesso",
+          description: "Reunião atualizada com sucesso!",
+        });
+      } else {
+        await reunioesSupabaseService.criar(meetingData);
+        toast({
+          title: "Sucesso",
+          description: "Reunião criada com sucesso!",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar reunião:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a reunião. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -51,6 +163,19 @@ export function MeetingForm({ onClose }: MeetingFormProps) {
       [field]: value
     }));
   };
+
+  const getProjetoLabel = (projeto: Projeto) => {
+    return `${projeto.nome}${projeto.cliente_nome ? ` - ${projeto.cliente_nome}` : ''}`;
+  };
+
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -67,8 +192,8 @@ export function MeetingForm({ onClose }: MeetingFormProps) {
                 <Calendar className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Nova Reunião</h2>
-                <p className="text-muted-foreground">Agende uma nova reunião com o cliente</p>
+                <h2 className="text-3xl font-bold">{meetingId ? 'Editar' : 'Nova'} Reunião</h2>
+                <p className="text-muted-foreground">{meetingId ? 'Edite a' : 'Agende uma nova'} reunião com o cliente</p>
               </div>
             </div>
           </div>
@@ -99,8 +224,8 @@ export function MeetingForm({ onClose }: MeetingFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {projetos.map(projeto => (
-                      <SelectItem key={projeto.id} value={projeto.id}>
-                        {projeto.nome} - {projeto.cliente}
+                      <SelectItem key={projeto.id} value={projeto.id.toString()}>
+                        {getProjetoLabel(projeto)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -248,12 +373,16 @@ export function MeetingForm({ onClose }: MeetingFormProps) {
 
             {/* Botões */}
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4" />
-                Salvar Reunião
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {loading ? 'Salvando...' : 'Salvar Reunião'}
               </Button>
             </div>
           </CardContent>

@@ -1,104 +1,295 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Label } from '@/components/scopes/ui/label';
 import { Textarea } from '@/components/scopes/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
-import { ArrowLeft, Save, Plus, Trash2, FileText } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/scopes/ui/dialog';
+import { ArrowLeft, Save, FileText, Loader2, FolderPlus, FolderTree } from 'lucide-react';
+import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
+import { orcamentosSupabaseService } from '@/lib/services/orcamentos-supabase';
+import { escoposSupabaseService, Escopo } from '@/lib/services/escopos-supabase';
+import { ProjectForm } from '@/components/projects/project-form';
+import { ScopeForm } from '@/components/scopes/scope-form';
+import { useToast } from '@/hooks/use-toast';
 
 interface BudgetFormProps {
   onClose: () => void;
+  budgetId?: number;
+  projectData?: {
+    projectId: number;
+    clienteId: number;
+    valorEstimado?: number;
+  } | null;
 }
 
-interface BudgetItem {
-  id: string;
-  descricao: string;
-  quantidade: number;
-  valor_unitario: number;
-  valor_total: number;
+interface Projeto {
+  id: number;
+  nome: string;
+  cliente_id: number;
+  cliente_nome?: string;
+  nome_empresa?: string;
+  nome_completo?: string;
+  valor_estimado?: number;
 }
 
-export function BudgetForm({ onClose }: BudgetFormProps) {
+export function BudgetForm({ onClose, budgetId, projectData }: BudgetFormProps) {
   const [formData, setFormData] = useState({
-    cliente_id: '',
     projeto_id: '',
+    escopo_funcional_id: '',
+    valor_orcamento: '',
     data_validade: '',
-    desconto: '',
     observacoes: ''
   });
 
-  const [itens, setItens] = useState<BudgetItem[]>([
-    {
-      id: '1',
-      descricao: '',
-      quantidade: 1,
-      valor_unitario: 0,
-      valor_total: 0
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [escopos, setEscopos] = useState<Escopo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showScopeForm, setShowScopeForm] = useState(false);
+  const { toast } = useToast();
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    loadInitialData();
+    if (budgetId) {
+      loadBudgetData();
     }
-  ]);
+  }, [budgetId]);
 
-  // Mock data
-  const clientes = [
-    { id: '1', nome: 'TechCorp Solutions' },
-    { id: '2', nome: 'Maria Santos' }
-  ];
+  // Pré-preencher dados quando projectData estiver disponível
+  useEffect(() => {
+    if (projectData && !budgetId) {
+      setFormData(prev => ({
+        ...prev,
+        projeto_id: projectData.projectId.toString(),
+        valor_orcamento: projectData.valorEstimado?.toString() || ''
+      }));
+      // Carregar escopos do projeto selecionado
+      loadEscopos(projectData.projectId);
+    }
+  }, [projectData, budgetId]);
 
-  const projetos = [
-    { id: '1', nome: 'Sistema de Gestão Empresarial', cliente_id: '1' },
-    { id: '2', nome: 'E-commerce Personalizado', cliente_id: '2' }
-  ];
+  // Carregar escopos quando projeto mudar
+  useEffect(() => {
+    if (formData.projeto_id && !projectData) {
+      loadEscopos(parseInt(formData.projeto_id));
+    }
+  }, [formData.projeto_id]);
 
-  const projetosFiltrados = projetos.filter(p => p.cliente_id === formData.cliente_id);
+  const loadInitialData = async () => {
+    try {
+      setLoadingData(true);
+      const projetosResponse = await projetosSupabaseService.listar({ limit: 100 });
+      setProjetos(projetosResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os projetos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadEscopos = async (projetoId: number) => {
+    try {
+      const escoposResponse = await escoposSupabaseService.listar({ 
+        projeto_id: projetoId,
+        limit: 100 
+      });
+      setEscopos(escoposResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar escopos:', error);
+      setEscopos([]);
+    }
+  };
+
+  const loadBudgetData = async () => {
+    if (!budgetId) return;
+    
+    try {
+      const response = await orcamentosSupabaseService.buscarPorId(budgetId);
+      const budget = response.data;
+      
+      setFormData({
+        projeto_id: budget.projeto_id?.toString() || '',
+        escopo_funcional_id: budget.escopo_funcional_id?.toString() || '',
+        valor_orcamento: budget.valor_final?.toString() || '',
+        data_validade: budget.data_validade,
+        observacoes: budget.observacoes || ''
+      });
+
+      // Carregar escopos do projeto
+      if (budget.projeto_id) {
+        loadEscopos(budget.projeto_id);
+      }
+      
+    } catch (error) {
+      console.error('Erro ao carregar orçamento:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados do orçamento.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateBudgetNumber = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const timestamp = now.getTime().toString().slice(-4);
+    return `ORC-${year}${month}${day}-${timestamp}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Dados do orçamento:', { ...formData, itens });
-    onClose();
+    
+    if (!formData.projeto_id || !formData.valor_orcamento || !formData.data_validade) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const valorOrcamento = parseFloat(formData.valor_orcamento);
+    if (isNaN(valorOrcamento) || valorOrcamento <= 0) {
+      toast({
+        title: "Erro",
+        description: "Valor do orçamento deve ser um número positivo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Buscar dados do projeto selecionado para obter o cliente_id
+      const projetoSelecionado = projetos.find(p => p.id.toString() === formData.projeto_id);
+      if (!projetoSelecionado) {
+        throw new Error('Projeto não encontrado');
+      }
+      
+      if (budgetId) {
+        const updateData = {
+          cliente_id: projetoSelecionado.cliente_id,
+          projeto_id: parseInt(formData.projeto_id),
+          escopo_funcional_id: formData.escopo_funcional_id ? parseInt(formData.escopo_funcional_id) : undefined,
+          data_validade: formData.data_validade,
+          valor_total: valorOrcamento,
+          valor_final: valorOrcamento,
+          status: 'rascunho' as const,
+          observacoes: formData.observacoes || undefined
+        };
+        
+        await orcamentosSupabaseService.atualizar(budgetId, updateData);
+        toast({
+          title: "Sucesso",
+          description: "Orçamento atualizado com sucesso!",
+        });
+      } else {
+        const budgetData = {
+          numero_orcamento: generateBudgetNumber(),
+          cliente_id: projetoSelecionado.cliente_id,
+          projeto_id: parseInt(formData.projeto_id),
+          escopo_funcional_id: formData.escopo_funcional_id ? parseInt(formData.escopo_funcional_id) : undefined,
+          data_validade: formData.data_validade,
+          valor_total: valorOrcamento,
+          valor_final: valorOrcamento,
+          status: 'rascunho' as const,
+          observacoes: formData.observacoes || undefined
+        };
+        
+        await orcamentosSupabaseService.criar(budgetData);
+        toast({
+          title: "Sucesso",
+          description: "Orçamento criado com sucesso!",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar orçamento:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o orçamento. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Limpar escopo quando projeto mudar
+      if (field === 'projeto_id') {
+        newData.escopo_funcional_id = '';
+        if (value) {
+          loadEscopos(parseInt(value));
+        } else {
+          setEscopos([]);
+        }
+      }
+      
+      return newData;
+    });
   };
 
-  const adicionarItem = () => {
-    const novoItem: BudgetItem = {
-      id: Date.now().toString(),
-      descricao: '',
-      quantidade: 1,
-      valor_unitario: 0,
-      valor_total: 0
-    };
-    setItens([...itens, novoItem]);
+  const getProjectDisplayName = (projeto: Projeto) => {
+    const clienteName = projeto.nome_empresa || projeto.nome_completo || projeto.cliente_nome || 'Cliente';
+    return `${projeto.nome} (${clienteName})`;
   };
 
-  const removerItem = (id: string) => {
-    if (itens.length > 1) {
-      setItens(itens.filter(item => item.id !== id));
+  const getScopeDisplayName = (escopo: Escopo) => {
+    return escopo.nome;
+  };
+
+  const handleProjectFormSuccess = () => {
+    setShowProjectForm(false);
+    loadInitialData(); // Recarregar lista de projetos
+  };
+
+  const handleScopeFormSuccess = () => {
+    setShowScopeForm(false);
+    if (formData.projeto_id) {
+      loadEscopos(parseInt(formData.projeto_id)); // Recarregar escopos do projeto
     }
   };
 
-  const atualizarItem = (id: string, campo: keyof BudgetItem, valor: any) => {
-    setItens(itens.map(item => {
-      if (item.id === id) {
-        const itemAtualizado = { ...item, [campo]: valor };
-        if (campo === 'quantidade' || campo === 'valor_unitario') {
-          itemAtualizado.valor_total = itemAtualizado.quantidade * itemAtualizado.valor_unitario;
-        }
-        return itemAtualizado;
-      }
-      return item;
-    }));
+  const getScopeFormData = () => {
+    if (!formData.projeto_id) return null;
+    
+    const projeto = projetos.find(p => p.id.toString() === formData.projeto_id);
+    return {
+      projectId: parseInt(formData.projeto_id),
+      projectName: projeto?.nome || '',
+      clienteName: projeto?.nome_empresa || projeto?.nome_completo || projeto?.cliente_nome || '',
+      valorOrcamento: parseFloat(formData.valor_orcamento) || undefined
+    };
   };
 
-  const valorSubtotal = itens.reduce((acc, item) => acc + item.valor_total, 0);
-  const valorDesconto = parseFloat(formData.desconto) || 0;
-  const valorTotal = valorSubtotal - valorDesconto;
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -115,8 +306,8 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
                 <FileText className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Novo Orçamento</h2>
-                <p className="text-muted-foreground">Crie um novo orçamento para o cliente</p>
+                <h2 className="text-3xl font-bold">{budgetId ? 'Editar' : 'Novo'} Orçamento</h2>
+                <p className="text-muted-foreground">{budgetId ? 'Edite o' : 'Crie um novo'} orçamento para o projeto</p>
               </div>
             </div>
           </div>
@@ -125,7 +316,7 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
 
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">
-          {/* Informações Básicas */}
+          {/* Informações do Orçamento */}
           <Card className="tech-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -136,165 +327,110 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cliente_id">Cliente *</Label>
-                  <Select 
-                    value={formData.cliente_id} 
-                    onValueChange={(value) => handleInputChange('cliente_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map(cliente => (
-                        <SelectItem key={cliente.id} value={cliente.id}>
-                          {cliente.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="projeto_id">Projeto</Label>
+              <div className="space-y-2">
+                <Label htmlFor="projeto_id">Projeto *</Label>
+                <div className="flex gap-2">
                   <Select 
                     value={formData.projeto_id} 
                     onValueChange={(value) => handleInputChange('projeto_id', value)}
-                    disabled={!formData.cliente_id}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Selecione um projeto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {projetosFiltrados.map(projeto => (
-                        <SelectItem key={projeto.id} value={projeto.id}>
-                          {projeto.nome}
+                      {projetos?.map(projeto => (
+                        <SelectItem key={projeto.id} value={projeto.id.toString()}>
+                          {getProjectDisplayName(projeto)}
                         </SelectItem>
-                      ))}
+                      )) || []}
                     </SelectContent>
                   </Select>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowProjectForm(true)}
+                    className="gap-2"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                    Novo Projeto
+                  </Button>
                 </div>
+                {projetos?.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum projeto encontrado. Crie um projeto primeiro para gerar o orçamento.
+                  </p>
+                )}
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="data_validade">Data de Validade *</Label>
-                <Input
-                  id="data_validade"
-                  type="date"
-                  value={formData.data_validade}
-                  onChange={(e) => handleInputChange('data_validade', e.target.value)}
-                  required
-                />
+                <Label htmlFor="escopo_funcional_id">Escopo Funcional</Label>
+                <div className="flex gap-2">
+                  <Select 
+                    value={formData.escopo_funcional_id} 
+                    onValueChange={(value) => handleInputChange('escopo_funcional_id', value)}
+                    disabled={!formData.projeto_id}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um escopo funcional (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {escopos?.map(escopo => (
+                        <SelectItem key={escopo.id} value={escopo.id.toString()}>
+                          {getScopeDisplayName(escopo)}
+                        </SelectItem>
+                      )) || []}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowScopeForm(true)}
+                    disabled={!formData.projeto_id}
+                    className="gap-2"
+                  >
+                    <FolderTree className="h-4 w-4" />
+                    Novo Escopo
+                  </Button>
+                </div>
+                {formData.projeto_id && escopos?.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum escopo funcional encontrado para este projeto. Crie um escopo primeiro.
+                  </p>
+                )}
+                {!formData.projeto_id && (
+                  <p className="text-sm text-muted-foreground">
+                    Selecione um projeto primeiro para visualizar os escopos funcionais.
+                  </p>
+                )}
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Itens do Orçamento */}
-          <Card className="tech-card">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <Plus className="h-5 w-5 text-green-400" />
-                </div>
-                Itens do Orçamento
-              </CardTitle>
-              <Button type="button" onClick={adicionarItem} size="sm" className="gap-2 bg-green-600 hover:bg-green-700">
-                <Plus className="h-4 w-4" />
-                Adicionar Item
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {itens.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-12 gap-4 items-end p-4 border border-border/50 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <div className="col-span-5">
-                    <Label>Descrição</Label>
-                    <Input
-                      value={item.descricao}
-                      onChange={(e) => atualizarItem(item.id, 'descricao', e.target.value)}
-                      placeholder="Descrição do item"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Quantidade</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={item.quantidade}
-                      onChange={(e) => atualizarItem(item.id, 'quantidade', parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Valor Unitário</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={item.valor_unitario}
-                      onChange={(e) => atualizarItem(item.id, 'valor_unitario', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Total</Label>
-                    <Input
-                      value={`R$ ${item.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removerItem(item.id)}
-                      disabled={itens.length === 1}
-                      className="hover:bg-red-100 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Totais */}
-          <Card className="tech-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <FileText className="h-5 w-5 text-purple-400" />
-                </div>
-                Totais
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Subtotal</Label>
+                  <Label htmlFor="valor_orcamento">Valor do Orçamento *</Label>
                   <Input
-                    value={`R$ ${valorSubtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="desconto">Desconto (R$)</Label>
-                  <Input
-                    id="desconto"
+                    id="valor_orcamento"
                     type="number"
                     step="0.01"
-                    value={formData.desconto}
-                    onChange={(e) => handleInputChange('desconto', e.target.value)}
+                    min="0"
+                    value={formData.valor_orcamento}
+                    onChange={(e) => handleInputChange('valor_orcamento', e.target.value)}
+                    placeholder="0,00"
+                    required
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Total Final</Label>
+                  <Label htmlFor="data_validade">Data de Validade *</Label>
                   <Input
-                    value={`R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                    disabled
-                    className="font-bold text-lg bg-green-50 border-green-200"
+                    id="data_validade"
+                    type="date"
+                    value={formData.data_validade}
+                    onChange={(e) => handleInputChange('data_validade', e.target.value)}
+                    required
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="observacoes">Observações</Label>
                 <Textarea
@@ -302,23 +438,71 @@ export function BudgetForm({ onClose }: BudgetFormProps) {
                   value={formData.observacoes}
                   onChange={(e) => handleInputChange('observacoes', e.target.value)}
                   rows={3}
+                  placeholder="Observações adicionais sobre o orçamento..."
                 />
               </div>
             </CardContent>
           </Card>
 
+          {/* Resumo do Valor */}
+          {formData.valor_orcamento && (
+            <Card className="tech-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <FileText className="h-5 w-5 text-green-400" />
+                  </div>
+                  Resumo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground mb-2">Valor Total do Orçamento</div>
+                  <div className="text-3xl font-bold text-green-600">
+                    R$ {parseFloat(formData.valor_orcamento || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Botões */}
           <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancelar
             </Button>
-            <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
-              <Save className="h-4 w-4" />
-              Salvar Orçamento
+            <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {loading ? 'Salvando...' : 'Salvar Orçamento'}
             </Button>
           </div>
         </div>
       </form>
+
+      {/* Modal para formulário de projeto */}
+      <Dialog open={showProjectForm} onOpenChange={setShowProjectForm}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+          <ProjectForm
+            onClose={() => setShowProjectForm(false)}
+            onSuccess={handleProjectFormSuccess}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para formulário de escopo */}
+      <Dialog open={showScopeForm} onOpenChange={setShowScopeForm}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6">
+          <ScopeForm
+            onClose={() => setShowScopeForm(false)}
+            onSuccess={handleScopeFormSuccess}
+            prefilledData={getScopeFormData()}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

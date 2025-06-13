@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Badge } from '@/components/scopes/ui/badge';
@@ -36,24 +36,15 @@ import {
   Calendar,
   ChevronDown,
   CheckSquare,
-  Square
+  Square,
+  Loader2
 } from 'lucide-react';
+import { escoposSupabaseService, Escopo } from '@/lib/services/escopos-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScopeListProps {
   onNewScope?: () => void;
   refreshTrigger?: number;
-}
-
-interface Scope {
-  id: number;
-  nome: string;
-  projeto_nome: string;
-  cliente_nome: string;
-  tipo_escopo: string;
-  status: string;
-  data_inicio?: string;
-  data_alvo?: string;
-  ordem: number;
 }
 
 export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
@@ -61,31 +52,76 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
   const [selectedScopes, setSelectedScopes] = useState<number[]>([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'todos' | 'planejado' | 'em_andamento' | 'concluido' | 'cancelado'>('todos');
+  const [scopes, setScopes] = useState<Escopo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { toast } = useToast();
 
-  // Mock data
-  const scopes: Scope[] = [
-    {
-      id: 1,
-      nome: 'Interface do Usuário',
-      projeto_nome: 'Sistema de Gestão Empresarial',
-      cliente_nome: 'TechCorp Solutions',
-      tipo_escopo: 'Frontend',
-      status: 'em_andamento',
-      data_inicio: '2024-01-15',
-      data_alvo: '2024-03-20',
-      ordem: 1
-    },
-    {
-      id: 2,
-      nome: 'API de Integração',
-      projeto_nome: 'E-commerce Personalizado',
-      cliente_nome: 'Maria Santos',
-      tipo_escopo: 'Backend',
-      status: 'planejado',
-      data_alvo: '2024-04-10',
-      ordem: 2
+  const loadScopes = async () => {
+    try {
+      setLoading(true);
+      const response = await escoposSupabaseService.listar({
+        status: statusFilter === 'todos' ? undefined : statusFilter,
+        busca: searchTerm || undefined,
+        page: currentPage,
+        limit: 10
+      });
+      setScopes(response.data);
+      if (response.pagination) {
+        setTotalPages(response.pagination.pages);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar escopos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os escopos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadScopes();
+  }, [currentPage, refreshTrigger, statusFilter]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        loadScopes();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset selection when scopes change
+  useEffect(() => {
+    setSelectedScopes([]);
+    setIsAllSelected(false);
+  }, [scopes]);
+
+  const handleExcluirScope = async (id: number) => {
+    try {
+      await escoposSupabaseService.excluir(id);
+      toast({
+        title: "Sucesso",
+        description: "Escopo excluído com sucesso.",
+      });
+      loadScopes();
+    } catch (error) {
+      console.error('Erro ao excluir escopo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o escopo.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -94,7 +130,7 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
       'concluido': 'bg-green-100 text-green-800',
       'cancelado': 'bg-red-100 text-red-800'
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-300';
   };
 
   const getStatusText = (status: string) => {
@@ -111,9 +147,8 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = (
       scope.nome.toLowerCase().includes(searchLower) ||
-      scope.projeto_nome.toLowerCase().includes(searchLower) ||
-      scope.cliente_nome.toLowerCase().includes(searchLower) ||
-      scope.tipo_escopo.toLowerCase().includes(searchLower)
+      (scope.projeto_nome && scope.projeto_nome.toLowerCase().includes(searchLower)) ||
+      (scope.cliente_nome && scope.cliente_nome.toLowerCase().includes(searchLower))
     );
     const matchesStatus = statusFilter === 'todos' ? true : scope.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -238,7 +273,12 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredScopes.length > 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Carregando escopos...</span>
+            </div>
+          ) : filteredScopes.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -249,10 +289,11 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
                       aria-label="Selecionar todos"
                     />
                   </TableHead>
+                  <TableHead>Escopo</TableHead>
                   <TableHead>Projeto/Cliente</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Prazo</TableHead>
-                  <TableHead>Açoes</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -266,9 +307,41 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
                       />
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium">{scope.projeto_nome}</div>
-                        <div className="text-sm text-muted-foreground">{scope.cliente_nome}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-500/20">
+                          <FolderTree className="h-4 w-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{scope.nome}</div>
+                          <div className="text-sm text-muted-foreground">Escopo Funcional</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          title={scope.cliente_nome || 'Cliente não informado'}
+                        >
+                          {scope.cliente_foto ? (
+                            <img 
+                              src={scope.cliente_foto} 
+                              alt={scope.cliente_nome || 'Cliente'} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`text-xs font-semibold text-gray-300 ${scope.cliente_foto ? 'hidden' : ''}`}>
+                            {(scope.cliente_nome || 'CI')[0].toUpperCase()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-medium">{scope.projeto_nome || 'Projeto não informado'}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -288,9 +361,15 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
                       )}
                     </TableCell>
                     <TableCell className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-blue-500 text-white" title="Visualizar" onClick={() => {}}><Eye className="h-4 w-4" /></Badge>
-                      <Badge variant="outline" className="bg-yellow-500 text-white" title="Editar" onClick={() => {}}><Edit className="h-4 w-4" /></Badge>
-                      <Badge variant="outline" className="bg-red-500 text-white" title="Excluir" onClick={() => {}}><Trash2 className="h-4 w-4" /></Badge>
+                      <Badge variant="outline" className="bg-blue-500 text-white cursor-pointer hover:bg-blue-600" title="Visualizar" onClick={() => {}}>
+                        <Eye className="h-4 w-4" />
+                      </Badge>
+                      <Badge variant="outline" className="bg-yellow-500 text-white cursor-pointer hover:bg-yellow-600" title="Editar" onClick={() => {}}>
+                        <Edit className="h-4 w-4" />
+                      </Badge>
+                      <Badge variant="outline" className="bg-red-500 text-white cursor-pointer hover:bg-red-600" title="Excluir" onClick={() => handleExcluirScope(scope.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -301,7 +380,7 @@ export function ScopeList({ onNewScope, refreshTrigger }: ScopeListProps) {
               <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-blue-50 mb-2 border border-blue-100">
                 <FolderTree className="h-8 w-8 text-blue-600" />
               </div>
-              <div className="text-lg font-semibold text-gray-700">
+              <div className="text-lg font-semibold text-gray-300">
                 {searchTerm ? 'Nenhum escopo encontrado' : 'Nenhum escopo funcional cadastrado ainda'}
               </div>
               <div className="text-muted-foreground max-w-md">

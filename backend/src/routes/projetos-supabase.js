@@ -38,7 +38,8 @@ router.get('/', async (req, res) => {
         *,
         clientes:cliente_id (
           nome_empresa,
-          nome_completo
+          nome_completo,
+          foto_url
         )
       `);
     
@@ -70,6 +71,7 @@ router.get('/', async (req, res) => {
       nome_empresa: projeto.clientes?.nome_empresa,
       nome_completo: projeto.clientes?.nome_completo,
       cliente_nome: projeto.clientes?.nome_empresa || projeto.clientes?.nome_completo,
+      cliente_foto: projeto.clientes?.foto_url,
       progresso_calculado: 0, // Será calculado quando tivermos tarefas implementadas
       total_tarefas: 0,
       tarefas_concluidas: 0
@@ -120,7 +122,8 @@ router.get('/:id', async (req, res) => {
           nome_empresa,
           nome_completo,
           email,
-          telefone
+          telefone,
+          foto_url
         )
       `)
       .eq('id', id)
@@ -139,6 +142,7 @@ router.get('/:id', async (req, res) => {
       nome_empresa: projeto.clientes?.nome_empresa,
       nome_completo: projeto.clientes?.nome_completo,
       cliente_nome: projeto.clientes?.nome_empresa || projeto.clientes?.nome_completo,
+      cliente_foto: projeto.clientes?.foto_url,
       progresso_calculado: 0,
       total_tarefas: 0,
       tarefas_concluidas: 0

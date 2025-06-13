@@ -336,7 +336,7 @@ export function ClientForm({ onClose, clienteId, onSuccess }: ClientFormProps) {
                     {/* Preview da imagem */}
                     <div className="relative">
                       {(previewUrl || formData.foto_url) ? (
-                        <div className="relative w-30 h-30 rounded-2xl overflow-hidden border-4 border-border/50 shadow-lg">
+                        <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-4 border-border/50 shadow-lg">
                           <img
                             src={previewUrl || cloudinaryService.getOptimizedImageUrl(formData.foto_url, 96, 96)}
                             alt="Preview do cliente"

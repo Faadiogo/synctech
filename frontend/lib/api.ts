@@ -111,6 +111,7 @@ export interface Projeto {
   cliente_nome?: string;
   nome_empresa?: string;
   nome_completo?: string;
+  cliente_foto?: string;
   total_tarefas?: number;
   tarefas_concluidas?: number;
   progresso_calculado?: number;

@@ -9,35 +9,29 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Schema de validação para escopo
+// Schema de validação para escopo funcional
 const escopoSchema = Joi.object({
   projeto_id: Joi.number().integer().positive().required(),
-  funcionalidade: Joi.string().min(3).max(255).required(),
+  nome: Joi.string().min(3).max(255).required(),
   descricao: Joi.string().allow(''),
-  categoria: Joi.string().valid('frontend', 'backend', 'design', 'integracao', 'teste', 'documentacao', 'outro').default('outro'),
-  prioridade: Joi.string().valid('baixa', 'media', 'alta', 'critica').default('media'),
-  complexidade: Joi.string().valid('simples', 'media', 'complexa', 'muito_complexa').default('media'),
-  horas_estimadas: Joi.number().integer().min(0).allow(null),
-  horas_trabalhadas: Joi.number().integer().min(0).default(0),
-  status: Joi.string().valid('nao_iniciado', 'em_andamento', 'concluido', 'cancelado', 'em_revisao').default('nao_iniciado'),
+  status: Joi.string().valid('planejado', 'em_andamento', 'concluido', 'cancelado').default('planejado'),
   data_inicio: Joi.date().allow(null),
-  data_conclusao: Joi.date().allow(null),
-  responsavel: Joi.string().allow(''),
-  observacoes: Joi.string().allow('')
+  data_alvo: Joi.date().allow(null),
+  ordem: Joi.number().integer().min(0).default(0)
 });
 
 // GET /api/escopos-supabase - Listar escopos
 router.get('/', async (req, res) => {
   try {
-    const { projeto_id, status, categoria, prioridade, page = 1, limit = 10 } = req.query;
+    const { projeto_id, status, categoria, prioridade, page = 1, limit = 10, busca } = req.query;
     
     let query = supabase
-      .from('escopos')
+      .from('escopos_funcionais')
       .select(`
         *,
-        projetos:projeto_id (
+        projetos!inner (
           nome,
-          clientes:cliente_id (
+          clientes!inner (
             nome_empresa,
             nome_completo
           )
@@ -56,8 +50,8 @@ router.get('/', async (req, res) => {
       query = query.eq('categoria', categoria);
     }
     
-    if (prioridade) {
-      query = query.eq('prioridade', prioridade);
+    if (busca) {
+      query = query.or(`nome.ilike.%${busca}%,descricao.ilike.%${busca}%`);
     }
     
     // Paginação
@@ -74,14 +68,12 @@ router.get('/', async (req, res) => {
     const escopos = escoposRaw.map(escopo => ({
       ...escopo,
       projeto_nome: escopo.projetos?.nome,
-      nome_empresa: escopo.projetos?.clientes?.nome_empresa,
-      nome_completo: escopo.projetos?.clientes?.nome_completo,
-      progresso: escopo.horas_estimadas > 0 ? 
-        Math.round((escopo.horas_trabalhadas / escopo.horas_estimadas) * 100) : 0
+      cliente_nome: escopo.projetos?.clientes?.nome_empresa || escopo.projetos?.clientes?.nome_completo,
+      cliente_foto: null // Adicionar se houver campo de foto na tabela clientes
     }));
     
     // Contar total para paginação
-    let countQuery = supabase.from('escopos').select('*', { count: 'exact', head: true });
+    let countQuery = supabase.from('escopos_funcionais').select('*', { count: 'exact', head: true });
     
     if (projeto_id) {
       countQuery = countQuery.eq('projeto_id', projeto_id);
@@ -91,12 +83,8 @@ router.get('/', async (req, res) => {
       countQuery = countQuery.eq('status', status);
     }
     
-    if (categoria) {
-      countQuery = countQuery.eq('categoria', categoria);
-    }
-    
-    if (prioridade) {
-      countQuery = countQuery.eq('prioridade', prioridade);
+    if (busca) {
+      countQuery = countQuery.or(`nome.ilike.%${busca}%,descricao.ilike.%${busca}%`);
     }
     
     const { count: total } = await countQuery;
@@ -122,13 +110,17 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     
     const { data: escopo, error } = await supabase
-      .from('escopos')
+      .from('escopos_funcionais')
       .select(`
         *,
-        projetos:projeto_id (
+        nivel1!inner (
+          nome,
+          cor_hex
+        ),
+        projetos!inner (
           nome,
           descricao,
-          clientes:cliente_id (
+          clientes!inner (
             nome_empresa,
             nome_completo
           )
@@ -147,11 +139,10 @@ router.get('/:id', async (req, res) => {
     // Processar dados para compatibilidade
     const escopoProcessado = {
       ...escopo,
+      tipo_escopo: escopo.nivel1?.nome || 'Geral',
       projeto_nome: escopo.projetos?.nome,
-      nome_empresa: escopo.projetos?.clientes?.nome_empresa,
-      nome_completo: escopo.projetos?.clientes?.nome_completo,
-      progresso: escopo.horas_estimadas > 0 ? 
-        Math.round((escopo.horas_trabalhadas / escopo.horas_estimadas) * 100) : 0
+      cliente_nome: escopo.projetos?.clientes?.nome_empresa || escopo.projetos?.clientes?.nome_completo,
+      cliente_foto: null
     };
     
     res.json({ data: escopoProcessado });
@@ -185,7 +176,7 @@ router.post('/', async (req, res) => {
     }
     
     const { data: escopo, error } = await supabase
-      .from('escopos')
+      .from('escopos_funcionais')
       .insert([value])
       .select()
       .single();
@@ -218,7 +209,7 @@ router.put('/:id', async (req, res) => {
     }
     
     const { data: escopo, error } = await supabase
-      .from('escopos')
+      .from('escopos_funcionais')
       .update(value)
       .eq('id', id)
       .select()
@@ -247,7 +238,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     
     const { error: deleteError } = await supabase
-      .from('escopos')
+      .from('escopos_funcionais')
       .delete()
       .eq('id', id);
     
@@ -271,7 +262,7 @@ router.get('/projeto/:projeto_id/resumo', async (req, res) => {
     const { projeto_id } = req.params;
     
     const { data: escopos, error } = await supabase
-      .from('escopos')
+      .from('escopos_funcionais')
       .select('*')
       .eq('projeto_id', projeto_id);
     

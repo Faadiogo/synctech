@@ -1,19 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Label } from '@/components/scopes/ui/label';
 import { Textarea } from '@/components/scopes/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
-import { ArrowLeft, Save, Calendar, Clock, Target, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Clock, Target, FileText, Loader2 } from 'lucide-react';
+import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
+import { cronogramaSupabaseService } from '@/lib/services/cronograma-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScheduleFormProps {
   onClose: () => void;
+  scheduleId?: number;
 }
 
-export function ScheduleForm({ onClose }: ScheduleFormProps) {
+interface Projeto {
+  id: number;
+  nome: string;
+}
+
+export function ScheduleForm({ onClose, scheduleId }: ScheduleFormProps) {
   const [formData, setFormData] = useState({
     projeto_id: '',
     fase_numero: '',
@@ -24,11 +33,11 @@ export function ScheduleForm({ onClose }: ScheduleFormProps) {
     status: 'nao_iniciada'
   });
 
-  // Mock data para projetos
-  const projetos = [
-    { id: '1', nome: 'Sistema de Gestão Empresarial' },
-    { id: '2', nome: 'E-commerce Personalizado' }
-  ];
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const { toast } = useToast();
+
   const statusOptions = [
     { value: 'nao_iniciada', label: 'Não Iniciada' },
     { value: 'em_andamento', label: 'Em Andamento' },
@@ -36,10 +45,107 @@ export function ScheduleForm({ onClose }: ScheduleFormProps) {
     { value: 'atrasada', label: 'Atrasada' }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadInitialData();
+    if (scheduleId) {
+      loadScheduleData();
+    }
+  }, [scheduleId]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoadingData(true);
+      const projetosResponse = await projetosSupabaseService.listar({ limit: 100 });
+      setProjetos(projetosResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar projetos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os projetos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const loadScheduleData = async () => {
+    if (!scheduleId) return;
+    
+    try {
+      const response = await cronogramaSupabaseService.buscarPorId(scheduleId);
+      const schedule = response.data;
+      
+      setFormData({
+        projeto_id: schedule.projeto_id.toString(),
+        fase_numero: schedule.ordem?.toString() || '1',
+        nome_fase: schedule.fase_nome,
+        descricao: schedule.descricao || '',
+        data_inicio: schedule.data_inicio,
+        data_alvo: schedule.data_fim,
+        status: schedule.status
+      });
+    } catch (error) {
+      console.error('Erro ao carregar cronograma:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados do cronograma.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Dados do cronograma:', formData);
-    onClose();
+    
+    if (!formData.projeto_id || !formData.fase_numero || !formData.nome_fase || !formData.data_inicio || !formData.data_alvo) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const scheduleData = {
+        projeto_id: parseInt(formData.projeto_id),
+        fase_nome: formData.nome_fase,
+        descricao: formData.descricao || undefined,
+        data_inicio: formData.data_inicio,
+        data_fim: formData.data_alvo,
+        status: formData.status as 'nao_iniciada' | 'em_andamento' | 'concluida' | 'atrasada',
+        progresso: 0,
+        ordem: parseInt(formData.fase_numero)
+      };
+
+      if (scheduleId) {
+        await cronogramaSupabaseService.atualizar(scheduleId, scheduleData);
+        toast({
+          title: "Sucesso",
+          description: "Cronograma atualizado com sucesso!",
+        });
+      } else {
+        await cronogramaSupabaseService.criar(scheduleData);
+        toast({
+          title: "Sucesso",
+          description: "Cronograma criado com sucesso!",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar cronograma:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o cronograma. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -48,6 +154,15 @@ export function ScheduleForm({ onClose }: ScheduleFormProps) {
       [field]: value
     }));
   };
+
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -64,8 +179,8 @@ export function ScheduleForm({ onClose }: ScheduleFormProps) {
                 <Calendar className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Nova Fase do Cronograma</h2>
-                <p className="text-muted-foreground">Cadastre uma nova fase do cronograma do projeto</p>
+                <h2 className="text-3xl font-bold">{scheduleId ? 'Editar' : 'Nova'} Fase do Cronograma</h2>
+                <p className="text-muted-foreground">{scheduleId ? 'Edite a' : 'Cadastre uma nova'} fase do cronograma do projeto</p>
               </div>
             </div>
           </div>
@@ -95,7 +210,7 @@ export function ScheduleForm({ onClose }: ScheduleFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {projetos.map(projeto => (
-                      <SelectItem key={projeto.id} value={projeto.id}>
+                      <SelectItem key={projeto.id} value={projeto.id.toString()}>
                         {projeto.nome}
                       </SelectItem>
                     ))}
@@ -195,12 +310,16 @@ export function ScheduleForm({ onClose }: ScheduleFormProps) {
               </div>
             </div>
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4" />
-                Salvar Fase
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {loading ? 'Salvando...' : 'Salvar Fase'}
               </Button>
             </div>
           </CardContent>

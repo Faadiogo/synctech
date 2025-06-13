@@ -1,19 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/scopes/ui/card';
 import { Button } from '@/components/scopes/ui/button';
 import { Input } from '@/components/scopes/ui/input';
 import { Label } from '@/components/scopes/ui/label';
 import { Textarea } from '@/components/scopes/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/scopes/ui/select';
-import { ArrowLeft, Save, CheckSquare, Calendar, Clock, User, FileText } from 'lucide-react';
+import { ArrowLeft, Save, CheckSquare, Calendar, Clock, User, FileText, Loader2 } from 'lucide-react';
+import { projetosSupabaseService } from '@/lib/services/projetos-supabase';
+import { tarefasSupabaseService } from '@/lib/services/tarefas-supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface TaskFormProps {
   onClose: () => void;
+  taskId?: number;
 }
 
-export function TaskForm({ onClose }: TaskFormProps) {
+interface Projeto {
+  id: number;
+  nome: string;
+  cliente_nome?: string;
+}
+
+export function TaskForm({ onClose, taskId }: TaskFormProps) {
   const [formData, setFormData] = useState({
     projeto_id: '',
     titulo: '',
@@ -27,11 +37,10 @@ export function TaskForm({ onClose }: TaskFormProps) {
     observacoes: ''
   });
 
-  // Mock data
-  const projetos = [
-    { id: '1', nome: 'Sistema de Gestão Empresarial', cliente: 'TechCorp Solutions' },
-    { id: '2', nome: 'E-commerce Personalizado', cliente: 'Maria Santos' }
-  ];
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const { toast } = useToast();
 
   const statusOptions = [
     { value: 'nao_iniciada', label: 'Não Iniciada' },
@@ -51,13 +60,117 @@ export function TaskForm({ onClose }: TaskFormProps) {
     'João Silva',
     'Maria Santos',
     'Pedro Costa',
-    'Ana Lima'
+    'Ana Lima',
+    'Carlos Oliveira',
+    'Fernanda Lima'
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadInitialData();
+    if (taskId) {
+      loadTaskData();
+    }
+  }, [taskId]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoadingData(true);
+      const projetosResponse = await projetosSupabaseService.listar({ limit: 100 });
+      setProjetos(projetosResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar projetos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os projetos. Verifique se o backend está rodando.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const loadTaskData = async () => {
+    if (!taskId) return;
+    
+    try {
+      const response = await tarefasSupabaseService.buscarPorId(taskId);
+      const task = response.data;
+      
+      setFormData({
+        projeto_id: task.projeto_id.toString(),
+        titulo: task.titulo,
+        descricao: task.descricao || '',
+        status: task.status,
+        prioridade: task.prioridade,
+        data_inicio: task.data_inicio || '',
+        data_alvo: task.data_alvo || '',
+        horas_estimadas: task.horas_estimadas?.toString() || '',
+        responsavel: task.responsavel || '',
+        observacoes: task.observacoes || ''
+      });
+    } catch (error) {
+      console.error('Erro ao carregar tarefa:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados da tarefa.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Dados da tarefa:', formData);
-    onClose();
+    
+    if (!formData.projeto_id || !formData.titulo) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const taskData = {
+        projeto_id: parseInt(formData.projeto_id),
+        titulo: formData.titulo,
+        descricao: formData.descricao || undefined,
+        status: formData.status as 'nao_iniciada' | 'em_andamento' | 'concluida' | 'cancelada',
+        prioridade: formData.prioridade as 'baixa' | 'media' | 'alta' | 'critica',
+        data_inicio: formData.data_inicio || undefined,
+        data_alvo: formData.data_alvo || undefined,
+        horas_estimadas: formData.horas_estimadas ? parseFloat(formData.horas_estimadas) : undefined,
+        responsavel: formData.responsavel || 'Não definido',
+        observacoes: formData.observacoes || undefined
+      };
+
+      if (taskId) {
+        await tarefasSupabaseService.atualizar(taskId, taskData);
+        toast({
+          title: "Sucesso",
+          description: "Tarefa atualizada com sucesso!",
+        });
+      } else {
+        await tarefasSupabaseService.criar(taskData);
+        toast({
+          title: "Sucesso",
+          description: "Tarefa criada com sucesso!",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar tarefa:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a tarefa. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -66,6 +179,19 @@ export function TaskForm({ onClose }: TaskFormProps) {
       [field]: value
     }));
   };
+
+  const getProjetoLabel = (projeto: Projeto) => {
+    return `${projeto.nome}${projeto.cliente_nome ? ` - ${projeto.cliente_nome}` : ''}`;
+  };
+
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-slide-in">
@@ -82,8 +208,8 @@ export function TaskForm({ onClose }: TaskFormProps) {
                 <CheckSquare className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Nova Tarefa</h2>
-                <p className="text-muted-foreground">Crie uma nova tarefa para o projeto</p>
+                <h2 className="text-3xl font-bold">{taskId ? 'Editar' : 'Nova'} Tarefa</h2>
+                <p className="text-muted-foreground">{taskId ? 'Edite a' : 'Crie uma nova'} tarefa para o projeto</p>
               </div>
             </div>
           </div>
@@ -114,8 +240,8 @@ export function TaskForm({ onClose }: TaskFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {projetos.map(projeto => (
-                      <SelectItem key={projeto.id} value={projeto.id}>
-                        {projeto.nome} - {projeto.cliente}
+                      <SelectItem key={projeto.id} value={projeto.id.toString()}>
+                        {getProjetoLabel(projeto)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -283,12 +409,16 @@ export function TaskForm({ onClose }: TaskFormProps) {
 
             {/* Botões */}
             <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancelar
               </Button>
-              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4" />
-                Salvar Tarefa
+              <Button type="submit" className="gap-2 bg-primary hover:bg-primary/90" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {loading ? 'Salvando...' : 'Salvar Tarefa'}
               </Button>
             </div>
           </CardContent>

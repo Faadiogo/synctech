@@ -1,4 +1,21 @@
-em fincanceiro criar uma visualização alternativa para entradas d
+ao salvar projeto quero redirecionar para projetos e não para clientes
+
+corrigir calendários de:
+
+    projects-form
+    budgets-form
+    contracts-form
+    adicionar novamente os campos de data em scopes-form
+    schedules-form
+    financial-form
+    tasks-form
+    meetings-form
 
 
-corrigir scope form
+
+
+criar visualização de calendário para meetings
+
+
+
+deixar dashboard dinamico com dados do banco e remover dados mockados
