@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { clientesService } from '@/lib/services/clientes';
-import { Cliente } from '@/lib/api';
+import { clientesService } from '@/lib/services/clientesService';
+import { Cliente } from '@/lib/services/clientesService';
 
 export function useClientes() {
   const [clientes, setClientes] = useState<Cliente[]>([]);

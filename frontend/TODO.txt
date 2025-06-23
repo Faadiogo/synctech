@@ -19,3 +19,51 @@ criar visualização de calendário para meetings
 
 
 deixar dashboard dinamico com dados do banco e remover dados mockados
+
+
+
+
+
+frontend/
+    .next/
+    app/
+        globas.css
+        layout.tsx
+        page.tsx
+    components/
+        sidebar.tsx
+        ui/
+        PAGINA/
+            PAGINA-list.tsx
+            PAGINA-form.tsx
+        PAGINA1/
+            PAGINA1-list.tsx
+            PAGINA1-form.tsx
+        PAGINA2/
+            PAGINA2-list.tsx
+            PAGINA2-form.tsx
+    hooks/
+    lib/
+        services/
+            PAGINA.ts
+            PAGINA1.ts
+            PAGINA2.ts
+        api.ts
+        utils.ts
+    node_modules/
+    public/
+    .env.local
+    .eslint.json
+    package-lock.json
+    package.json
+    next.config.js
+    next-env.d.ts 
+    components.json
+    postcss.config.js
+    tailwind.config.ts
+    tsconfig.json
+    tsconfig-tsbuildinfo
+
+
+
+

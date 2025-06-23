@@ -1,8 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/scopes/ui/button';
-import { ScrollArea } from '@/components/scopes/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   LayoutDashboard,
   Users,
@@ -25,74 +25,70 @@ import {
   PanelLeftOpen
 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface SidebarProps {
-  activePage: string;
-  onPageChange: (page: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
 
-export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
+  const pathname = usePathname();
+  
   const navigation = [
     {
       name: 'Dashboard',
       icon: LayoutDashboard,
-      id: 'dashboard',
+      href: '/',
       section: 'relatorios'
     },
     {
       name: 'Clientes',
       icon: Users,
-      id: 'clients',
+      href: '/clients',
       section: 'cadastros'
     },
     {
       name: 'Projetos',
       icon: FolderOpen,
-      id: 'projects',
+      href: '/projects',
       section: 'cadastros'
     },
     {
       name: 'Orçamentos',
       icon: FileText,
-      id: 'budgets',
+      href: '/budgets',
       section: 'cadastros'
     },
     {
       name: 'Contratos',
       icon: FilePenLine,
-      id: 'contracts',
-      section: 'cadastros'
-    },
-    {
-      name: 'Escopos',
-      icon: FolderTree,
-      id: 'scopes',
+      href: '/contracts',
       section: 'cadastros'
     },
     {
       name: 'Cronogramas',
       icon: ListTodo,
-      id: 'schedules',
+      href: '/schedules',
       section: 'cadastros'
     },
     {
       name: 'Fluxo de Caixa',
       icon: DollarSign,
-      id: 'financial',
+      href: '/financial',
       section: 'financeiro'
     },
     {
       name: 'Tarefas',
       icon: CheckSquare,
-      id: 'tasks',
+      href: '/tasks',
       section: 'operacional'
     },
     {
       name: 'Reuniões',
       icon: Calendar,
-      id: 'meetings',
+      href: '/meetings',
       section: 'operacional'
     }
   ];
@@ -166,13 +162,13 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
               )}
               <div className="space-y-0.5">
                 {items.map((item) => {
-                  const isActive = activePage === item.id;
+                  const isActive = pathname === item.href;
                   return (
-                    <Button
-                      key={item.id}
-                      variant="ghost"
+                    <Link
+                      key={item.href}
+                      href={item.href}
                       className={cn(
-                        "w-full transition-all duration-200 relative group",
+                        "w-full transition-all duration-200 relative group flex items-center rounded-md",
                         collapsed
                           ? "justify-center p-2.5 h-11"
                           : "justify-start gap-3 px-3 py-1.5 text-left font-medium",
@@ -180,7 +176,6 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
                           ? "bg-primary/20 text-primary border-r-2 border-primary shadow-lg"
                           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                       )}
-                      onClick={() => onPageChange(item.id)}
                       title={collapsed ? item.name : undefined}
                     >
                       {/* Efeito de glow para item ativo */}
@@ -210,7 +205,7 @@ export function Sidebar({ activePage, onPageChange, collapsed, onToggleCollapse 
                           <ChevronRight className="h-3 w-3 text-primary" />
                         </div>
                       )}
-                    </Button>
+                    </Link>
                   );
                 })}
               </div>

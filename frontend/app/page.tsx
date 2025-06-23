@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/scopes/ui/card';
-import { Button } from '@/components/scopes/ui/button';
-import { Badge } from '@/components/scopes/ui/badge';
-import { Progress } from '@/components/scopes/ui/progress';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   Users, 
   FolderOpen, 
@@ -21,31 +21,30 @@ import {
   Activity,
   Zap
 } from 'lucide-react';
-import { Sidebar } from '@/components/sidebar';
-import { ClientList } from '@/components/clients/client-list';
-import { ClientForm } from '@/components/clients/client-form';
-import { ProjectList } from '@/components/projects/project-list';
-import { ProjectForm } from '@/components/projects/project-form';
-import { ProjectView } from '@/components/projects/project-view';
-import { BudgetList } from '@/components/budgets/budget-list';
-import { BudgetForm } from '@/components/budgets/budget-form';
-import { ContractList } from '@/components/contracts/contract-list';
-import { ContractForm } from '@/components/contracts/contract-form';
-import { FinancialList } from '@/components/financial/financial-list';
-import { FinancialForm } from '@/components/financial/financial-form';
-import { MeetingList } from '@/components/meetings/meeting-list';
-import { MeetingForm } from '@/components/meetings/meeting-form';
-import { TaskList } from '@/components/tasks/task-list';
-import { TaskForm } from '@/components/tasks/task-form';
-import { ScopeList } from '@/components/scopes/scope-list';
-import { ScheduleList } from '@/components/schedules/schedule-list';
-import { ScopeForm } from '@/components/scopes/scope-form';
-import { ScheduleForm } from '@/components/schedules/schedule-form';
-import { useRouter } from 'next/navigation';
+
+import { ClientForm } from '@/app/clients/form/page';
+import { ClientList } from '@/app/clients/page';
+import { ProjectForm } from '@/app/projects/form/page';
+import { ProjectList } from '@/app/projects/page';
+import { ProjectView } from '@/app/projects/view/page';
+import { BudgetForm } from '@/app/budgets/form/page';
+import { BudgetList } from '@/app/budgets/page';
+import { ContractForm } from '@/app/contracts/form/page';
+import { ContractList } from '@/app/contracts/page';
+import { FinancialForm } from '@/app/financial/form/page';
+import { FinancialList } from '@/app/financial/page';
+import { MeetingForm } from '@/app/meetings/form/page';
+import { MeetingList } from '@/app/meetings/page';
+import { TaskForm } from '@/app/tasks/form/page';
+import { TaskList } from '@/app/tasks/page';
+import { ScheduleForm } from '@/app/schedules/form/page';
+import { ScheduleList } from '@/app/schedules/page';
 
 export default function Dashboard() {
+  const router = useRouter();
+  
+  // Obter página ativa da URL ou usar dashboard como padrão
   const [activePage, setActivePage] = useState('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [clientProjectsView, setClientProjectsView] = useState<{clienteId: number, clienteName: string} | null>(null);
   
@@ -54,9 +53,17 @@ export default function Dashboard() {
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [projectTasksView, setProjectTasksView] = useState<number | null>(null);
   const [budgetProjectView, setBudgetProjectView] = useState<{projectId: number, clienteId: number, valorEstimado?: number} | null>(null);
+
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  
-  const router = useRouter();
+
+  // Sincronizar estado com URL quando a página carregar
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentPage = urlParams.get('page') || 'dashboard';
+    if (currentPage !== activePage) {
+      setActivePage(currentPage);
+    }
+  }, []);
 
   // Função para limpar visualização de projetos ao mudar de página
   const handlePageChange = (page: string) => {
@@ -67,6 +74,10 @@ export default function Dashboard() {
     setEditingProjectId(null);
     setProjectTasksView(null);
     setBudgetProjectView(null);
+    
+    // Atualizar URL sem recarregar a página
+    const newUrl = page === 'dashboard' ? '/' : `/?page=${page}`;
+    router.push(newUrl, { scroll: false });
   };
 
   // Funções para gerenciar projetos
@@ -82,14 +93,13 @@ export default function Dashboard() {
   const handleViewTasks = (projectId: number) => {
     setProjectTasksView(projectId);
     setActivePage('tasks');
+    router.push('/?page=tasks', { scroll: false });
   };
 
   const handleGenerateBudget = async (projectId: number) => {
     try {
-      // Buscar dados do projeto para pré-preencher o orçamento
-      const { projetosSupabaseService } = await import('@/lib/services/projetos-supabase');
-      const response = await projetosSupabaseService.buscarPorId(projectId);
-      const projeto = response.data;
+      const { projetosService } = await import('@/lib/services/projetosService');
+      const projeto = await projetosService.buscarPorId(projectId);
       
       setBudgetProjectView({
         projectId: projeto.id,
@@ -98,6 +108,7 @@ export default function Dashboard() {
       });
       setActivePage('budgets');
       setShowForm(true);
+      router.push('/?page=budgets', { scroll: false });
     } catch (error) {
       console.error('Erro ao buscar dados do projeto:', error);
     }
@@ -110,7 +121,7 @@ export default function Dashboard() {
   const handleProjectFormSuccess = () => {
     setShowForm(false);
     setEditingProjectId(null);
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev: number) => prev + 1);
   };
 
   const handleBudgetFormClose = () => {
@@ -185,8 +196,6 @@ export default function Dashboard() {
           return <MeetingForm onClose={() => setShowForm(false)} />;
         case 'tasks':
           return <TaskForm onClose={() => setShowForm(false)} />;
-        case 'scopes':
-          return <ScopeForm onClose={() => setShowForm(false)} />;
         case 'schedules':
           return <ScheduleForm onClose={() => setShowForm(false)} />;
         default:
@@ -220,6 +229,7 @@ export default function Dashboard() {
           onBack={() => {
             setClientProjectsView(null);
             setActivePage('clients');
+            router.push('/?page=clients', { scroll: false });
           }}
         />
       );
@@ -229,9 +239,10 @@ export default function Dashboard() {
       case 'clients':
         return (
           <ClientList 
-            onViewProjects={(clienteId, clienteName) => {
+            onViewProjects={(clienteId: number, clienteName: string) => {
               setClientProjectsView({ clienteId, clienteName });
               setActivePage('projects');
+              router.push('/?page=projects', { scroll: false });
             }}
           />
         );
@@ -262,11 +273,10 @@ export default function Dashboard() {
             onBack={projectTasksView ? () => {
               setProjectTasksView(null);
               setActivePage('projects');
+              router.push('/?page=projects', { scroll: false });
             } : undefined}
           />
         );
-      case 'scopes':
-        return <ScopeList onNewScope={() => setShowForm(true)} />;
       case 'schedules':
         return <ScheduleList onNewSchedule={() => setShowForm(true)} />;
       default:
@@ -483,20 +493,5 @@ export default function Dashboard() {
     }
   };
 
-  return (
-    <div className="flex h-screen">
-      <Sidebar 
-        activePage={activePage} 
-        onPageChange={handlePageChange}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
-      
-      <div className="flex-1 h-screen flex flex-col">
-        <main className="flex-1 overflow-y-auto p-6">
-          {renderContent()}
-        </main>
-      </div>
-    </div>
-  );
+  return renderContent();
 }

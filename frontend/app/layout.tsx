@@ -2,7 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import React from 'react';
-import { Toaster } from '@/components/scopes/ui/toaster';
+import { Toaster } from '@/components/ui/toaster';
+import { AppLayoutWithSidebar } from './app-layout-with-sidebar';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -34,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <body className={inter.className}>
-        {children}
+        <AppLayoutWithSidebar>
+          {children}
+        </AppLayoutWithSidebar>
         <Toaster />
       </body>
     </html>

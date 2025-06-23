@@ -270,3 +270,103 @@ html, body {
   height: 100%;
   min-height: 100vh;
 }
+
+/* Estilos para inputs com prefixo R$ */
+.input-container {
+  display: flex;
+  align-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background-color: hsl(var(--background));
+  transition: all 0.2s ease;
+}
+
+.input-container:focus-within {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+.input-container span {
+  padding: 0.5rem 0.75rem;
+  background-color: hsl(var(--muted));
+  border-right: 1px solid hsl(var(--border));
+  font-size: 0.8752rem;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+}
+
+.input-container input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding-left: 0.75rem !important;
+}
+
+.input-container input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Estilos para inputs de data */
+input[type="date"] {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+
+input[type="date"]:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+/* Dark mode para inputs de data */
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+input[type="date"] {
+  background-color: rgb(15, 23, 41); 
+  color: rgb(255, 255, 255); 
+  border: 1px solid var(--border); 
+  border-radius: var(--radius); 
+  padding: 0.5rem; 
+  transition: all 0.2s ease;
+  border-width: 0.5px;
+  border-color: rgb(59, 65, 80);
+  border-style: solid;
+  border-radius: 0.5rem;
+  justify-content: center;
+  font-size: medium;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+}
+
+.input-container span {
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+
+.button {
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  margin-left: 0.5rem;
+}
